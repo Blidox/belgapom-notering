@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Belgapom Notering</title>
+  <!-- Tailwind (CDN) for quick styling; replace with compiled CSS later if desired -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for the line chart -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <meta name="description" content="Wekelijkse Belgapom-notering: gemiddelde prijs en marktstemming." />
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body class="bg-gray-50 text-slate-900">
+  <!-- Header -->
+  <header class="bg-white border-b sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-[#1d2d44]"></div>
+        <div>
+          <h1 class="text-xl font-semibold">Belgapom Notering</h1>
+          <p class="text-sm text-slate-500">Wekelijkse gemiddelde prijs vrije aardappelen</p>
+        </div>
+      </div>
+      <button class="no-print px-4 py-2 rounded-xl border hover:bg-gray-50" onclick="window.print()">Download PDF</button>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-6">
+    <!-- KPIs + Chart -->
+    <section class="md:col-span-2 space-y-6">
+      <div class="bg-white rounded-2xl shadow p-5 grid grid-cols-2 md:grid-cols-4 gap-4" id="kpi">
+        <div>
+          <div class="text-xs text-slate-500">Gemiddelde prijs</div>
+          <div class="text-2xl font-semibold" id="kpi-price">–</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500">Week</div>
+          <div class="text-2xl font-semibold" id="kpi-week">–</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500">Datum</div>
+          <div class="text-2xl font-semibold" id="kpi-date">–</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-500">Marktstemming</div>
+          <div class="mt-1"><span id="kpi-sentiment" class="inline-block px-3 py-1 rounded-full text-white bg-gray-500">–</span></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl shadow p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3.75 3A.75.75 0 0 0 3 3.75v16.5a.75.75 0 0 0 1.28.53l5.97-6.135 4.48 4.48a.75.75 0 0 0 1.06 0l5.25-5.25a.75.75 0 0 0 0-1.06l-1.5-1.5a.75.75 0 0 0-1.06 0L15 14.94l-4.47-4.47a.75.75 0 0 0-1.06 0L4.5 15.44V3.75A.75.75 0 0 0 3.75 3z"/></svg>
+          <h2 class="text-lg font-semibold">Historiek gemiddelde prijs</h2>
+        </div>
+        <canvas id="priceChart" height="280"></canvas>
+      </div>
+    </section>
+
+    <!-- Info / Footer side -->
+    <aside class="space-y-4">
+      <div class="bg-white rounded-2xl shadow p-5">
+        <h3 class="font-semibold mb-2">Over deze notering</h3>
+        <p class="text-sm text-slate-600">De waarden op deze pagina worden wekelijks bijgewerkt door Belgapom. De grafiek toont de evolutie van het gemiddelde (€/ton) van vrije aardappelen.</p>
+      </div>
+      <div class="bg-white rounded-2xl shadow p-5 text-sm text-slate-600">
+        <p class="mb-2">Laatste update: <span id="lastUpdate">–</span></p>
+        <p class="mb-2">Bron: interne rapportering</p>
+        <p class="text-xs">© <span id="year"></span> Belgapom</p>
+      </div>
+      <div class="no-print bg-white rounded-2xl shadow p-5 text-sm text-slate-600">
+        <h4 class="font-semibold mb-2">Opmerking</h4>
+        <p>Deze pagina leest data uit een beveiligde Google Sheet of API. Admin-invoer gebeurt via een Google Form of een afgeschermde webapp (geen kosten).</p>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const APP_SCRIPT_JSON_URL = "PASTE_YOUR_APPS_SCRIPT_PUBLIC_GET_URL_HERE"; // e.g. https://script.google.com/macros/s/XXXX/exec
+
+    function euro(v) { try { return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(v)); } catch(e){ return v; } }
+    function sentimentColor(s){
+      const k = (s||'').toLowerCase();
+      if (k === 'positief') return 'bg-green-600';
+      if (k === 'negatief') return 'bg-red-600';
+      return 'bg-gray-600';
+    }
+
+    async function loadData(){
+      try {
+        const res = await fetch(APP_SCRIPT_JSON_URL, { cache: 'no-store' });
+        const json = await res.json();
+        // Expecting: { rows: [{date:"2025-08-04", week:"W32 2025", avg:112, sentiment:"positief"}, ...] }
+        const rows = (json && json.rows) ? json.rows : [];
+        if (!rows.length) return;
+        // Sort by date asc
+        rows.sort((a,b)=> new Date(a.date) - new Date(b.date));
+        const last = rows[rows.length-1];
+        document.getElementById('kpi-price').textContent = euro(last.avg);
+        document.getElementById('kpi-week').textContent = last.week || '–';
+        document.getElementById('kpi-date').textContent = last.date || '–';
+        const badge = document.getElementById('kpi-sentiment');
+        badge.textContent = last.sentiment || '–';
+        badge.className = `inline-block px-3 py-1 rounded-full text-white ${sentimentColor(last.sentiment)}`;
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleString('nl-BE');
+        document.getElementById('year').textContent = new Date().getFullYear();
+
+        // Chart
+        const labels = rows.map(r=> r.week || r.date);
+        const data = rows.map(r=> Number(r.avg));
+        const ctx = document.getElementById('priceChart');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{ label: 'Gemiddelde prijs (€/ton)', data, borderWidth: 3, fill: false, tension: 0.3 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { ticks: { callback: (v)=> `${v} €` } } },
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${euro(c.raw)}` } } }
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
+
