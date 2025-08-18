@@ -47,4 +47,187 @@
       <div class="card p-5 grid grid-cols-2 md:grid-cols-4 gap-4" id="kpis">
         <div>
           <div class="kpi-label">Notering</div>
-          <div class="kpi-value text
+          <div class="kpi-value text-2xl font-semibold" id="kpi-quote">–</div>
+        </div>
+        <div>
+          <div class="kpi-label">Contractprijs</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-contract">–</div>
+        </div>
+        <div>
+          <div class="kpi-label">Week</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-week">–</div>
+        </div>
+        <div>
+          <div class="kpi-label">Datum</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-date">–</div>
+        </div>
+        <div class="col-span-2 md:col-span-4">
+          <div class="kpi-label">Marktstemming</div>
+          <span id="kpi-sentiment" class="inline-block mt-1 px-3 py-1 rounded-full text-white bg-gray-600 text-sm">–</span>
+        </div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15Zm3 3A.75.75 0 0 0 5.25 8v8a.75.75 0 0 0 1.5 0V8A.75.75 0 0 0 6 7.5Zm4.5 3A.75.75 0 0 0 9.75 11v5a.75.75 0 0 0 1.5 0v-5a.75.75 0 0 0-.75-.75ZM15 9a.75.75 0 0 0-.75.75v6.25a.75.75 0 0 0 1.5 0V9.75A.75.75 0 0 0 15 9Zm3-1.5a.75.75 0 0 0-.75.75V18a.75.75 0 0 0 1.5 0V8.25a.75.75 0 0 0-.75-.75Z"/></svg>
+          <h2 class="text-lg font-semibold">Historiek</h2>
+        </div>
+        <canvas id="chart" height="300"></canvas>
+      </div>
+    </section>
+
+    <!-- Side -->
+    <aside class="space-y-4">
+      <div class="card p-5 text-sm text-slate-700">
+        <p class="mb-2">Laatste update: <span id="lastUpdate">–</span></p>
+        <p class="mb-2">Bron: interne rapportering</p>
+        <p class="text-xs">© <span id="year"></span> Belgapom</p>
+      </div>
+      <div class="card p-5 text-sm text-slate-700">
+        <h3 class="font-semibold mb-2">Recent</h3>
+        <div id="recent" class="space-y-1">Laden…</div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbwl6ctD2f_4RHJ3_hng0gcRI9sjl5tnceFujUv4rErbSIJT3iZXuaHLIcgLk6tTKSrQ/exec?mode=json";
+
+    const euro = v => (v==null||v==='') ? '–' : new Intl.NumberFormat('nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
+    function badgeClass(s){
+      s = (s||'').toLowerCase();
+      if (s==='positief') return 'bg-green-600';
+      if (s==='negatief') return 'bg-red-600';
+      if (s==='stabiel' || s==='neutraal') return 'bg-gray-600';
+      return 'bg-gray-500';
+    }
+    async function fetchJSON(url){
+      const res = await fetch(url, { cache: 'no-store' });
+      const txt = await res.text();
+      if (!txt) throw new Error('Lege respons');
+      if (txt.trim().startsWith('<')) throw new Error('Server gaf HTML terug i.p.v. JSON');
+      try { return JSON.parse(txt); } catch(e){ throw new Error('Ongeldig JSON: '+e.message); }
+    }
+
+    let chart;
+
+    // Format dd/mm/jjjj
+    function formatBE(iso){
+      if (!iso) return '–';
+      const d = new Date(iso + 'T00:00:00');
+      const dd = String(d.getDate()).padStart(2,'0');
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    function renderKPI(latest){
+      document.getElementById('kpi-quote').textContent = euro(latest.notering);
+      document.getElementById('kpi-contract').textContent = euro(latest.contract_price);
+      document.getElementById('kpi-week').textContent = latest.week || '–';
+      document.getElementById('kpi-date').textContent = formatBE(latest.date);
+      const b = document.getElementById('kpi-sentiment');
+      b.textContent = latest.marktstemming || '–';
+      b.className = 'inline-block mt-1 px-3 py-1 rounded-full text-white text-sm ' + badgeClass(latest.marktstemming);
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleString('nl-BE', { timeZone: 'Europe/Brussels' });
+      document.getElementById('year').textContent = new Date().getFullYear();
+    }
+
+    function renderChart(rows){
+      const labels = rows.map(r => r.week || formatBE(r.date));
+      const contract = rows.map(r => (r.contract_price==null? null : Number(r.contract_price)));
+      const quote    = rows.map(r => (r.notering==null? null : Number(r.notering)));
+
+      // Bepaal schaal: negeer null en 0 (0 staat vaak voor “leeg”). Bescherm tegen uitschieters met mediaan.
+      const merged = [...contract, ...quote].filter(v => Number.isFinite(v) && v > 0);
+      let yMin = 0, yMax = 1, step = 1;
+      if (merged.length) {
+        const sorted = [...merged].sort((a,b)=>a-b);
+        const mid = Math.floor(sorted.length/2);
+        const median = sorted.length % 2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+        const rawMin = sorted[0];
+        const rawMax = sorted[sorted.length-1];
+        const effMin = Math.max(rawMin, median*0.6); // knip extreme lage outliers af
+        const effMax = rawMax;
+        const span   = Math.max(1, effMax - effMin);
+        const pad    = Math.max(10, Math.round(span*0.10));
+        // nice step (~7 ticks)
+        const target = span/7;
+        const pow10  = Math.pow(10, Math.floor(Math.log10(target)));
+        const base   = target / pow10;
+        let nice = 1; if (base<=1) nice=1; else if (base<=2) nice=2; else if (base<=5) nice=5; else nice=10;
+        step = nice * pow10;
+        yMin = Math.floor((effMin - pad)/step)*step;
+        yMax = Math.ceil((effMax + pad)/step)*step;
+      }
+
+      const ctx = document.getElementById('chart');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Contractprijs (€/ton)', data: contract, borderWidth: 3, pointRadius: 3, borderColor: '#1d2d44', backgroundColor: 'transparent', spanGaps: true },
+            { label: 'Notering (€/ton)',      data: quote,    borderWidth: 3, pointRadius: 3, borderColor: '#748cab', backgroundColor: 'transparent', spanGaps: true }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y: {
+              min: yMin,
+              max: yMax,
+              beginAtZero: false,
+              ticks: { stepSize: step, callback: v => `${v} €` }
+            }
+          },
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    }
+
+    function renderRecent(rows){
+      const el = document.getElementById('recent');
+      const last = rows.slice(-8).reverse();
+      el.innerHTML = last.map(r => (
+        `<div class="flex items-center justify-between py-1">
+           <span>${formatBE(r.date)}</span>
+           <span class="tabular-nums">${euro(r.notering)}</span>
+         </div>`
+      )).join('');
+    }
+
+    async function init(){
+      try {
+        const data = await fetchJSON(APP_SCRIPT_JSON_URL);
+        const rows = Array.isArray(data.rows)? data.rows: [];
+        if (!rows.length) throw new Error('Geen rijen in data');
+        rows.sort((a,b)=> a.date.localeCompare(b.date));
+
+        // Gebruik Brussels tijdzone en toon notering van vorige/huidige vrijdag t/m donderdag
+        const nowBE = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Brussels' }));
+        const day = nowBE.getDay(); // 0=zo, 5=vr
+        const offsetToFriday = (day >= 5) ? (day - 5) : (day + 2); // afstand tot vorige vrijdag
+        const lastFriday = new Date(nowBE);
+        lastFriday.setDate(nowBE.getDate() - offsetToFriday);
+        const cutoff = lastFriday.toISOString().slice(0,10);
+        const latest = rows.filter(r => r.date <= cutoff).slice(-1)[0] || rows[rows.length-1];
+
+        renderKPI(latest);
+        renderChart(rows);
+        renderRecent(rows);
+      } catch(err){
+        document.getElementById('kpis').innerHTML = `<div class="text-sm text-red-700">Kon data niet laden: ${err.message}. Controleer of de JSON-URL juist is en '?mode=json' bevat.</div>`;
+        const ctx = document.getElementById('chart').getContext('2d');
+        ctx.font = '14px system-ui'; ctx.fillStyle = '#999'; ctx.fillText('Geen data beschikbaar', 10, 20);
+        document.getElementById('recent').textContent = '—';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
