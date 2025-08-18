@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Belgapom – Notering</title>
-  <meta name="description" content="Contractprijzen en wekelijkse notering voor vrije aardappelen." />
+  <title>Belgapom – Notering / Cotation</title>
+  <meta name="description" content="Contractprijzen en wekelijkse notering voor vrije aardappelen. / Prix contractuels et cotation hebdomadaire pour pommes de terre libres." />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -20,6 +20,8 @@
     .card { background:#fff; border-radius: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
     .kpi-label { color: var(--brand-gray); font-size: 12px; }
     .kpi-value { color: var(--brand-navy); }
+    .btn { padding:.5rem .75rem; border:1px solid rgba(0,0,0,.1); border-radius: .75rem; }
+    .btn.active { background:#0d1321; color:#fff; border-color:#0d1321; }
     @media print { .no-print { display:none !important } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
 </head>
@@ -30,39 +32,43 @@
       <div class="flex items-center gap-3">
         <img src="assets/belgapom-logo.svg" alt="Belgapom" class="h-9 w-auto" onerror="this.style.display='none'"/>
         <div>
-          <h1 class="text-xl font-semibold">Belgapom – Notering</h1>
-          <p class="text-sm text-gray-500">Contractprijzen en wekelijkse notering (vrije aardappelen)</p>
+          <h1 class="text-xl font-semibold" data-i18n="title">Belgapom – Notering</h1>
+          <p class="text-sm text-gray-500" data-i18n="subtitle">Contractprijzen en wekelijkse notering (vrije aardappelen)</p>
         </div>
       </div>
       <div class="flex items-center gap-2 no-print">
-        <button class="px-3 py-2 rounded-xl border" onclick="window.print()">Download PDF</button>
+        <div class="flex gap-1" role="group" aria-label="language switch">
+          <button id="btn-nl" class="btn active">NL</button>
+          <button id="btn-fr" class="btn">FR</button>
+        </div>
+        <button class="btn" onclick="window.print()" data-i18n="download">Download PDF</button>
       </div>
     </div>
   </header>
 
   <!-- Main -->
   <main class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-6">
-    <!-- KPIs + Chart -->
+    <!-- KPIs + Chart + Text -->
     <section class="md:col-span-2 space-y-6">
       <div class="card p-5 grid grid-cols-2 md:grid-cols-4 gap-4" id="kpis">
         <div>
-          <div class="kpi-label">Notering</div>
+          <div class="kpi-label" data-i18n="kpi_quote">Notering</div>
           <div class="kpi-value text-2xl font-semibold" id="kpi-quote">–</div>
         </div>
         <div>
-          <div class="kpi-label">Contractprijs</div>
+          <div class="kpi-label" data-i18n="kpi_contract">Contractprijs</div>
           <div class="kpi-value text-2xl font-semibold" id="kpi-contract">–</div>
         </div>
         <div>
-          <div class="kpi-label">Week</div>
+          <div class="kpi-label" data-i18n="kpi_week">Week</div>
           <div class="kpi-value text-2xl font-semibold" id="kpi-week">–</div>
         </div>
         <div>
-          <div class="kpi-label">Datum</div>
+          <div class="kpi-label" data-i18n="kpi_date">Datum</div>
           <div class="kpi-value text-2xl font-semibold" id="kpi-date">–</div>
         </div>
         <div class="col-span-2 md:col-span-4">
-          <div class="kpi-label">Marktstemming</div>
+          <div class="kpi-label" data-i18n="kpi_sentiment">Marktstemming</div>
           <span id="kpi-sentiment" class="inline-block mt-1 px-3 py-1 rounded-full text-white bg-gray-600 text-sm">–</span>
         </div>
       </div>
@@ -70,7 +76,7 @@
       <div class="card p-5">
         <div class="flex items-center gap-2 mb-4">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15Zm3 3A.75.75 0 0 0 5.25 8v8a.75.75 0 0 0 1.5 0V8A.75.75 0 0 0 6 7.5Zm4.5 3A.75.75 0 0 0 9.75 11v5a.75.75 0 0 0 1.5 0v-5a.75.75 0 0 0-.75-.75ZM15 9a.75.75 0 0 0-.75.75v6.25a.75.75 0 0 0 1.5 0V9.75A.75.75 0 0 0 15 9Zm3-1.5a.75.75 0 0 0-.75.75V18a.75.75 0 0 0 1.5 0V8.25a.75.75 0 0 0-.75-.75Z"/></svg>
-          <h2 class="text-lg font-semibold">Historiek</h2>
+          <h2 class="text-lg font-semibold" data-i18n="history">Historiek</h2>
         </div>
         <div class="relative h-[400px]">
           <canvas id="chart"></canvas>
@@ -78,52 +84,129 @@
 
         <!-- Legende marktstemming -->
         <div class="mt-6 p-4 border rounded bg-slate-50 text-sm">
-          <h3 class="font-semibold mb-2">Legende marktstemming</h3>
+          <h3 class="font-semibold mb-2" data-i18n="legend_title">Legende marktstemming</h3>
           <ul class="list-disc pl-5 space-y-1">
-            <li><strong>Flauw</strong>: aanbod is groter dan de vraag</li>
-            <li><strong>Rustig</strong>: aanbod is groter dan of gelijk aan de vraag</li>
-            <li><strong>Stabiel</strong>: aanbod is gelijk aan de vraag, evenwicht</li>
-            <li><strong>Prijshoudend</strong>: aanbod is kleiner dan of gelijk aan de vraag</li>
-            <li><strong>Vast</strong>: aanbod is kleiner dan de vraag</li>
+            <li data-i18n="legend_weak"><strong>Flauw</strong> — aanbod is groter dan de vraag</li>
+            <li data-i18n="legend_calm"><strong>Rustig</strong> — aanbod is groter dan of gelijk aan de vraag</li>
+            <li data-i18n="legend_stable"><strong>Stabiel</strong> — aanbod is gelijk aan de vraag (evenwicht)</li>
+            <li data-i18n="legend_support"><strong>Prijshoudend</strong> — aanbod is kleiner dan of gelijk aan de vraag</li>
+            <li data-i18n="legend_firm"><strong>Vast</strong> — aanbod is kleiner dan de vraag</li>
           </ul>
         </div>
 
         <!-- Reglementering & toelichting -->
         <div class="mt-6 p-4 border rounded bg-slate-50 text-sm leading-relaxed">
-          <h3 class="font-semibold mb-2">Reglementering & toelichting</h3>
-          <p class="mb-2">Vrije markt en contracten in de Belgische diepvriesfrietsector:</p>
-          <p class="mb-2">De wekelijkse Belgapomnotering voor vroege aardappelen (juli–augustus) en voor Fontane en Challenger (bewaarseizoen) geeft een duidelijke indicatie van de evolutie van de vrije aardappelmarkt voor de verwerking van aardappelen tot diepvriesfriet.</p>
-          <p class="mb-2">Daarnaast maken telers, handel en verwerking in steeds grotere mate gebruik van teeltcontracten, die een grotere stabiliteit van de grondstofprijs op het oog hebben. De verhouding tussen beide instrumenten om aardappelen te kopen en verkopen kan verschillen van bedrijf tot bedrijf. Beide componenten dienen in rekening gebracht te worden om de evolutie van de grondstofprijs te volgen.</p>
-          <p>Daarom toont de grafiek bij de Belgapomnotering ook de maandelijkse evolutie van de contractprijzen naast de wekelijkse notering.</p>
+          <h3 class="font-semibold mb-2" data-i18n="rules_title">Reglementering & toelichting</h3>
+          <div data-i18n="rules_body">
+            <p class="mb-2">Vrije markt en contracten in de Belgische diepvriesfrietsector:</p>
+            <p class="mb-2">De wekelijkse Belgapomnotering voor vroege aardappelen (juli–augustus) en voor Fontane en Challenger (bewaarseizoen) geeft een duidelijke indicatie van de evolutie van de vrije aardappelmarkt voor de verwerking van aardappelen tot diepvriesfriet.</p>
+            <p class="mb-2">Daarnaast maken telers, handel en verwerking in steeds grotere mate gebruik van teeltcontracten, die een grotere stabiliteit van de grondstofprijs op het oog hebben. De verhouding tussen beide instrumenten om aardappelen te kopen en verkopen kan verschillen van bedrijf tot bedrijf. Beide componenten dienen in rekening gebracht te worden om de evolutie van de grondstofprijs te volgen.</p>
+            <p>Daarom toont de grafiek bij de Belgapomnotering ook de maandelijkse evolutie van de contractprijzen naast de wekelijkse notering.</p>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- Side -->
+    <!-- Side (zonder 'Recent') -->
     <aside class="space-y-4">
       <div class="card p-5 text-sm text-slate-700">
-        <p class="mb-2">Laatste update: <span id="lastUpdate">–</span></p>
-        <p class="mb-2">Bron: interne rapportering</p>
+        <p class="mb-2"><span data-i18n="last_update_label">Laatste update</span>: <span id="lastUpdate">–</span></p>
+        <p class="mb-2" data-i18n="source">Bron: interne rapportering</p>
         <p class="text-xs">© <span id="year"></span> Belgapom</p>
-      </div>
-      <div class="card p-5 text-sm text-slate-700">
-        <h3 class="font-semibold mb-2">Recent</h3>
-        <div id="recent" class="space-y-1">Laden…</div>
       </div>
     </aside>
   </main>
 
   <script>
-    // Nieuwe JSON-feed URL
-    const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbxmajQRtjQkgHlUOO-OUfy0EpmNgO3V068JmW-mM0M0fm_5ImZyY_Ln5sZFXyqy3jbGyQ/exec?mode=json";
+    // ====== NIEUWE JSON-URL ======
+    const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbxlS3ObwycxBQm6qnr2BnN1Zsd7v88noImi6GxXv_eGzJMp78cuuDPRDrLfIa55HCWRFA/exec?mode=json";
 
-    // Helpers
+    // ====== I18N ======
+    let LANG = 'nl';
+    const I18N = {
+      nl: {
+        title: "Belgapom – Notering",
+        subtitle: "Contractprijzen en wekelijkse notering (vrije aardappelen)",
+        download: "Download PDF",
+        history: "Historiek",
+        kpi_quote: "Notering",
+        kpi_contract: "Contractprijs",
+        kpi_week: "Week",
+        kpi_date: "Datum",
+        kpi_sentiment: "Marktstemming",
+        legend_title: "Legende marktstemming",
+        legend_weak: "Flauw — aanbod is groter dan de vraag",
+        legend_calm: "Rustig — aanbod is groter dan of gelijk aan de vraag",
+        legend_stable: "Stabiel — aanbod is gelijk aan de vraag (evenwicht)",
+        legend_support: "Prijshoudend — aanbod is kleiner dan of gelijk aan de vraag",
+        legend_firm: "Vast — aanbod is kleiner dan de vraag",
+        rules_title: "Reglementering & toelichting",
+        rules_body: [
+          "Vrije markt en contracten in de Belgische diepvriesfrietsector:",
+          "De wekelijkse Belgapomnotering voor vroege aardappelen (juli–augustus) en voor Fontane en Challenger (bewaarseizoen) geeft een duidelijke indicatie van de evolutie van de vrije aardappelmarkt voor de verwerking van aardappelen tot diepvriesfriet.",
+          "Daarnaast maken telers, handel en verwerking in steeds grotere mate gebruik van teeltcontracten, die een grotere stabiliteit van de grondstofprijs op het oog hebben. De verhouding tussen beide instrumenten om aardappelen te kopen en verkopen kan verschillen van bedrijf tot bedrijf. Beide componenten dienen in rekening gebracht te worden om de evolutie van de grondstofprijs te volgen.",
+          "Daarom toont de grafiek bij de Belgapomnotering ook de maandelijkse evolutie van de contractprijzen naast de wekelijkse notering."
+        ],
+        last_update_label: "Laatste update",
+        source: "Bron: interne rapportering",
+        // sentiment badge mapping (input -> display)
+        s_pos: "Positief", s_stable: "Stabiel", s_neg: "Negatief"
+      },
+      fr: {
+        title: "Belgapom – Cotation",
+        subtitle: "Prix contractuels et cotation hebdomadaire (pommes de terre libres)",
+        download: "Télécharger PDF",
+        history: "Historique",
+        kpi_quote: "Cotation",
+        kpi_contract: "Prix contractuel",
+        kpi_week: "Semaine",
+        kpi_date: "Date",
+        kpi_sentiment: "Tendance du marché",
+        legend_title: "Légende – tendance du marché",
+        legend_weak: "Faible — l'offre est supérieure à la demande",
+        legend_calm: "Calme — l'offre est supérieure ou égale à la demande",
+        legend_stable: "Stable — l'offre est égale à la demande (équilibre)",
+        legend_support: "Soutenu — l'offre est inférieure ou égale à la demande",
+        legend_firm: "Ferme — l'offre est inférieure à la demande",
+        rules_title: "Réglementation & explications",
+        rules_body: [
+          "Marché libre et contrats dans le secteur belge des frites surgelées :",
+          "La cotation hebdomadaire de Belgapom pour les pommes de terre précoces (juillet–août) et pour Fontane & Challenger (saison de conservation) indique clairement l’évolution du marché libre des pommes de terre destinées à la transformation en frites surgelées.",
+          "Parallèlement, producteurs, commerce et industrie recourent de plus en plus aux contrats de culture, visant une plus grande stabilité du prix de la matière première. La part relative de ces instruments peut varier d’une entreprise à l’autre. Les deux composantes doivent être prises en compte pour suivre l’évolution du prix.",
+          "C’est pourquoi le graphique de la cotation Belgapom affiche aussi l’évolution mensuelle des prix contractuels en plus de la cotation hebdomadaire."
+        ],
+        last_update_label: "Dernière mise à jour",
+        source: "Source : reporting interne",
+        s_pos: "Positif", s_stable: "Stable", s_neg: "Négatif"
+      }
+    };
+
+    function applyI18N() {
+      const dict = I18N[LANG];
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        const val = dict[key];
+        if (Array.isArray(val)) {
+          el.innerHTML = val.map(p => `<p class="mb-2">${p}</p>`).join("");
+        } else if (typeof val === "string") {
+          el.textContent = val;
+        }
+      });
+      // Update NL/FR toggle UI
+      document.getElementById('btn-nl').classList.toggle('active', LANG==='nl');
+      document.getElementById('btn-fr').classList.toggle('active', LANG==='fr');
+    }
+
+    // ====== HELPERS ======
     const euro = v => (v==null||v==='') ? '–' : new Intl.NumberFormat('nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
-    function badgeClass(s){
-      s = (s||'').toLowerCase();
-      if (s==='positief') return 'bg-green-600';
-      if (s==='negatief') return 'bg-red-600';
-      if (s==='stabiel' || s==='neutraal') return 'bg-gray-600';
+    function badgeClass(sent){
+      const s = String(sent||'').toLowerCase();
+      // steun kleuren op NL labels; mapping van FR naar NL hieronder bij renderKPI
+      if (s.includes('vast') || s.includes('ferme')) return 'bg-green-600';
+      if (s.includes('prijshoud') || s.includes('soutenu')) return 'bg-yellow-600';
+      if (s.includes('stabiel') || s.includes('stable')) return 'bg-gray-600';
+      if (s.includes('rustig') || s.includes('calme')) return 'bg-gray-500';
+      if (s.includes('flauw') || s.includes('faible') || s.includes('negatief') || s.includes('négatif')) return 'bg-red-600';
       return 'bg-gray-500';
     }
     async function fetchJSON(url){
@@ -154,43 +237,59 @@
 
     function renderKPI(latest){
       document.getElementById('kpi-quote').textContent = euro(latest.notering);
-      document.getElementById('kpi-contract').textContent = euro(latest.contract_price);
+      document.getElementById('kpi-contract').textContent = euro(latest.contract_price_ff ?? latest.contract_price);
       document.getElementById('kpi-week').textContent = latest.week || '–';
       document.getElementById('kpi-date').textContent = formatBE(latest.date);
+
+      // sentiment label vertalen voor FR weergave
+      const raw = String(latest.marktstemming||'').toLowerCase();
+      let disp = raw;
+      if (LANG==='fr') {
+        if (raw.includes('vast')) disp = 'Ferme';
+        else if (raw.includes('prijshoud')) disp = 'Soutenu';
+        else if (raw.includes('stabiel')) disp = 'Stable';
+        else if (raw.includes('rustig')) disp = 'Calme';
+        else if (raw.includes('flauw') || raw.includes('negatief')) disp = 'Faible';
+      } else {
+        if (raw.includes('ferme')) disp = 'Vast';
+        else if (raw.includes('soutenu')) disp = 'Prijshoudend';
+        else if (raw.includes('stable')) disp = 'Stabiel';
+        else if (raw.includes('calme')) disp = 'Rustig';
+        else if (raw.includes('faible')) disp = 'Flauw';
+      }
+
       const b = document.getElementById('kpi-sentiment');
-      b.textContent = latest.marktstemming || '–';
-      b.className = 'inline-block mt-1 px-3 py-1 rounded-full text-white text-sm ' + badgeClass(latest.marktstemming);
+      b.textContent = disp || '–';
+      b.className = 'inline-block mt-1 px-3 py-1 rounded-full text-white text-sm ' + badgeClass(disp);
       document.getElementById('lastUpdate').textContent = new Date().toLocaleString('nl-BE', { timeZone: 'Europe/Brussels' });
       document.getElementById('year').textContent = new Date().getFullYear();
     }
 
     function renderChart(rows){
       const labels   = rows.map(r => r.week || formatBE(r.date));
-      const contract = rows.map(r => (r.contract_price_ff==null ? null : Number(r.contract_price_ff)));
-      const quote    = rows.map(r => (r.notering==null       ? null : Number(r.notering)));
+      const contract = rows.map(r => {
+        const v = r.contract_price_ff ?? r.contract_price;
+        return (v==null ? null : Number(v));
+      });
+      const quote    = rows.map(r => (r.notering==null ? null : Number(r.notering)));
 
-      // Waarden voor schaal: negeer null/0 en bescherm tegen uitschieters
+      // schaalbepaling met guard tegen uitschieters
       const vals = [...contract, ...quote].filter(v => Number.isFinite(v) && v > 0);
       let yMin = 0, yMax = 100, step = 10;
-
       if (vals.length) {
-        // Mediaan-guard om extreme lage waardes te temperen
         const sorted = [...vals].sort((a,b)=>a-b);
         const mid = Math.floor(sorted.length/2);
         const median = sorted.length % 2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
         const rawMin = sorted[0];
         const rawMax = sorted[sorted.length-1];
-
-        // Ondergrens niet lager dan 60% van mediaan, en nooit onder 0
         const effMin = Math.max(0, Math.max(rawMin, median * 0.6));
         const effMax = rawMax;
-
         const span = Math.max(1, effMax - effMin);
         const pad  = Math.max(10, Math.round(span * 0.10));
         step = niceStep(span);
-        yMin = Math.max(0, Math.floor((effMin - pad) / step) * step);
-        yMax = Math.ceil((effMax + pad) / step) * step;
-        if (yMax <= yMin) yMax = yMin + step; // guard
+        yMin = Math.max(0, Math.floor((effMin - pad)/step)*step);
+        yMax = Math.ceil((effMax + pad)/step)*step;
+        if (yMax <= yMin) yMax = yMin + step;
       }
 
       const ctx = document.getElementById('chart');
@@ -200,8 +299,8 @@
         data: {
           labels,
           datasets: [
-            { label: 'Contractprijs (€/ton)', data: contract, borderWidth: 3, pointRadius: 3, borderColor: '#1d2d44', backgroundColor: 'transparent', spanGaps: true },
-            { label: 'Notering (€/ton)',      data: quote,    borderWidth: 3, pointRadius: 3, borderColor: '#748cab', backgroundColor: 'transparent', spanGaps: true }
+            { label: (LANG==='fr' ? 'Prix contractuel (€/tonne)' : 'Contractprijs (€/ton)'), data: contract, borderWidth: 3, pointRadius: 3, borderColor: '#1d2d44', backgroundColor: 'transparent', spanGaps: true },
+            { label: (LANG==='fr' ? 'Cotation (€/tonne)' : 'Notering (€/ton)'),             data: quote,    borderWidth: 3, pointRadius: 3, borderColor: '#748cab', backgroundColor: 'transparent', spanGaps: true }
           ]
         },
         options: {
@@ -221,21 +320,15 @@
       });
     }
 
-    function renderRecent(rows){
-      const el = document.getElementById('recent');
-      const last = rows.slice(-8).reverse();
-      el.innerHTML = last.map(r => (
-        `<div class="flex items-center justify-between py-1">
-           <span>${formatBE(r.date)}</span>
-           <span class="tabular-nums">${euro(r.notering)}</span>
-         </div>`
-      )).join('');
-    }
-
     async function init(){
+      // taal-schakelaar
+      document.getElementById('btn-nl').onclick = ()=>{ LANG='nl'; applyI18N(); if (window.__rows) { renderKPI(window.__latest); renderChart(window.__rows); } };
+      document.getElementById('btn-fr').onclick = ()=>{ LANG='fr'; applyI18N(); if (window.__rows) { renderKPI(window.__latest); renderChart(window.__rows); } };
+      applyI18N();
+
       try {
         const data = await fetchJSON(APP_SCRIPT_JSON_URL);
-        const rows = Array.isArray(data.rows) ? data.rows : [];
+        const rows = Array.isArray(data.rows)? data.rows: [];
         if (!rows.length) throw new Error('Geen rijen in data');
         rows.sort((a,b)=> a.date.localeCompare(b.date));
 
@@ -247,16 +340,21 @@
         lastFriday.setDate(nowBE.getDate() - offsetToFriday);
         const cutoff = lastFriday.toISOString().slice(0,10);
 
-        const latest = rows.filter(r => r.date <= cutoff).slice(-1)[0] || rows[rows.length-1];
+        let latest = rows[rows.length-1];
+        for (let i = rows.length - 1; i >= 0; i--) {
+          if (rows[i].date <= cutoff) { latest = rows[i]; break; }
+        }
+
+        // stash for re-render on language switch
+        window.__rows = rows;
+        window.__latest = latest;
 
         renderKPI(latest);
         renderChart(rows);
-        renderRecent(rows);
       } catch(err){
         document.getElementById('kpis').innerHTML = `<div class="text-sm text-red-700">Kon data niet laden: ${err.message}. Controleer of de JSON-URL juist is en '?mode=json' bevat.</div>`;
         const ctx = document.getElementById('chart').getContext('2d');
-        ctx.font = '14px system-ui'; ctx.fillStyle = '#999'; ctx.fillText('Geen data beschikbaar', 10, 20);
-        document.getElementById('recent').textContent = '—';
+        ctx.font = '14px system-ui'; ctx.fillStyle = '#999'; ctx.fillText('Geen data beschikbaar / Pas de données', 10, 20);
       }
     }
 
