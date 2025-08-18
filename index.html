@@ -72,7 +72,29 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15Zm3 3A.75.75 0 0 0 5.25 8v8a.75.75 0 0 0 1.5 0V8A.75.75 0 0 0 6 7.5Zm4.5 3A.75.75 0 0 0 9.75 11v5a.75.75 0 0 0 1.5 0v-5a.75.75 0 0 0-.75-.75ZM15 9a.75.75 0 0 0-.75.75v6.25a.75.75 0 0 0 1.5 0V9.75A.75.75 0 0 0 15 9Zm3-1.5a.75.75 0 0 0-.75.75V18a.75.75 0 0 0 1.5 0V8.25a.75.75 0 0 0-.75-.75Z"/></svg>
           <h2 class="text-lg font-semibold">Historiek</h2>
         </div>
-        <canvas id="chart" height="300"></canvas>
+        <div class="relative h-[400px]">
+          <canvas id="chart"></canvas>
+        </div>
+        <!-- Legende marktstemming -->
+        <div class="mt-6 p-4 border rounded bg-slate-50 text-sm">
+          <h3 class="font-semibold mb-2">Legende marktstemming</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li><strong>Flauw</strong>: aanbod is groter dan de vraag</li>
+            <li><strong>Rustig</strong>: aanbod is groter dan of gelijk aan de vraag</li>
+            <li><strong>Stabiel</strong>: aanbod is gelijk aan de vraag, evenwicht</li>
+            <li><strong>Prijshoudend</strong>: aanbod is kleiner dan of gelijk aan de vraag</li>
+            <li><strong>Vast</strong>: aanbod is kleiner dan de vraag</li>
+          </ul>
+        </div>
+        <!-- Reglementering -->
+        <div class="mt-6 p-4 border rounded bg-slate-50 text-sm">
+          <h3 class="font-semibold mb-2">Reglementering</h3>
+          <p class="mb-2">Vrije markt en contracten in de Belgische diepvriesfrietsector:</p>
+          <p class="mb-2">De wekelijkse Belgapomnotering voor vroege aardappelen (juli-augustus), voor Fontane en Challenger (bewaarseizoen) geeft een duidelijke indicatie van de evolutie van de vrije aardappelmarkt voor de verwerking van aardappelen tot diepvriesfriet.</p>
+          <p class="mb-2">Daarnaast maken telers, handel en verwerking in steeds grotere mate gebruik van teeltcontracten, die een grotere stabiliteit van de grondstofprijs op het oog hebben. De verhouding tussen beide instrumenten om aardappelen te kopen en verkopen kunnen verschillen van bedrijf tot bedrijf.</p>
+          <p class="mb-2">Beide componenten dienen in rekening gebracht te worden om de evolutie van de grondstofprijs te volgen.</p>
+          <p>Vandaar dat de grafiek voor Fontane bij de Belgapomnotering vanaf de oogst 2014 ook de maandelijkse evolutie van de gemiddelde contractprijs bij handel en verwerking zal weergeven, naast deze van de wekelijkse Belgapomnotering.</p>
+        </div>
       </div>
     </section>
 
@@ -91,7 +113,7 @@
   </main>
 
   <script>
-    const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbwl6ctD2f_4RHJ3_hng0gcRI9sjl5tnceFujUv4rErbSIJT3iZXuaHLIcgLk6tTKSrQ/exec?mode=json";
+    const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbxmajQRtjQkgHlUOO-OUfy0EpmNgO3V068JmW-mM0M0fm_5ImZyY_Ln5sZFXyqy3jbGyQ/exec?mode=json";
 
     const euro = v => (v==null||v==='') ? '–' : new Intl.NumberFormat('nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
     function badgeClass(s){
@@ -109,67 +131,37 @@
       try { return JSON.parse(txt); } catch(e){ throw new Error('Ongeldig JSON: '+e.message); }
     }
 
-    // dd/mm/jjjj formatter
-    function formatBE(iso){
-      if (!iso) return '–';
-      const d = new Date(iso + 'T00:00:00');
-      const dd = String(d.getDate()).padStart(2,'0');
-      const mm = String(d.getMonth()+1).padStart(2,'0');
-      const yyyy = d.getFullYear();
-      return `${dd}/${mm}/${yyyy}`;
-    }
-
     let chart;
+
+    function formatDate(dateStr){
+      if(!dateStr) return '–';
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('nl-BE');
+    }
 
     function renderKPI(latest){
       document.getElementById('kpi-quote').textContent = euro(latest.notering);
       document.getElementById('kpi-contract').textContent = euro(latest.contract_price);
       document.getElementById('kpi-week').textContent = latest.week || '–';
-      document.getElementById('kpi-date').textContent = formatBE(latest.date);
+      document.getElementById('kpi-date').textContent = formatDate(latest.date);
       const b = document.getElementById('kpi-sentiment');
       b.textContent = latest.marktstemming || '–';
       b.className = 'inline-block mt-1 px-3 py-1 rounded-full text-white text-sm ' + badgeClass(latest.marktstemming);
-      document.getElementById('lastUpdate').textContent = new Date().toLocaleString('nl-BE', { timeZone: 'Europe/Brussels' });
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleString('nl-BE');
       document.getElementById('year').textContent = new Date().getFullYear();
     }
 
-    function niceStep(rawSpan){
-      const target = rawSpan / 7; // ~7 ticks
-      const pow10 = Math.pow(10, Math.floor(Math.log10(target)));
-      const base = target / pow10;
-      let step;
-      if (base <= 1) step = 1; else if (base <= 2) step = 2; else if (base <= 5) step = 5; else step = 10;
-      return step * pow10;
-    }
-
     function renderChart(rows){
-      const labels = rows.map(r => r.week || formatBE(r.date));
+      const labels = rows.map(r => r.week || formatDate(r.date));
       const contract = rows.map(r => (r.contract_price==null? null : Number(r.contract_price)));
       const quote    = rows.map(r => (r.notering==null? null : Number(r.notering)));
 
-      // Schaalbepaling:
-      // 1) negeer null / 0 (0 duidt meestal op leeg)
-      // 2) mediaan-guard tegen uitschieters die alles naar beneden trekken
-      const merged = [...contract, ...quote].filter(v => Number.isFinite(v) && v > 0);
-      let yMin = 0, yMax = 1, step = 1;
-      if (merged.length) {
-        const sorted = [...merged].sort((a,b)=>a-b);
-        const mid = Math.floor(sorted.length/2);
-        const median = sorted.length % 2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
-        const rawMin = sorted[0];
-        const rawMax = sorted[sorted.length-1];
-
-        // Ondergrens niet lager dan 60% van de mediaan
-        const effMin = Math.max(rawMin, median * 0.6);
-        const effMax = rawMax;
-
-        const span   = Math.max(1, effMax - effMin);
-        const pad    = Math.max(10, Math.round(span * 0.10));
-        step         = niceStep(span);
-        yMin         = Math.floor((effMin - pad) / step) * step;
-        yMax         = Math.ceil((effMax + pad) / step) * step;
+      const allVals = [...contract, ...quote].filter(v => Number.isFinite(v) && v>0);
+      let dataMin=0, dataMax=1;
+      if(allVals.length){
+        dataMin = Math.min(...allVals);
+        dataMax = Math.max(...allVals);
       }
-
       const ctx = document.getElementById('chart');
       if (chart) chart.destroy();
       chart = new Chart(ctx, {
@@ -187,10 +179,9 @@
           interaction: { mode: 'index', intersect: false },
           scales: {
             y: {
-              min: yMin,
-              max: yMax,
-              beginAtZero: false,
-              ticks: { stepSize: step, callback: v => `${v} €` }
+              min: dataMin - 10,
+              max: dataMax + 10,
+              ticks: { callback: v => `${v} €` }
             }
           },
           plugins: { legend: { position: 'bottom' } }
@@ -203,7 +194,7 @@
       const last = rows.slice(-8).reverse();
       el.innerHTML = last.map(r => (
         `<div class="flex items-center justify-between py-1">
-           <span>${formatBE(r.date)}</span>
+           <span>${formatDate(r.date)}</span>
            <span class="tabular-nums">${euro(r.notering)}</span>
          </div>`
       )).join('');
@@ -216,12 +207,12 @@
         if (!rows.length) throw new Error('Geen rijen in data');
         rows.sort((a,b)=> a.date.localeCompare(b.date));
 
-        // “Vrijdag→Donderdag” regel (Europe/Brussels)
-        const nowBE = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Brussels' }));
-        const day = nowBE.getDay(); // 0=zo, 5=vr
-        const offsetToFriday = (day >= 5) ? (day - 5) : (day + 2); // vorige vrijdag
-        const lastFriday = new Date(nowBE);
-        lastFriday.setDate(nowBE.getDate() - offsetToFriday);
+        // Bepaal meest recente vrijdag tot donderdag
+        const today = new Date();
+        const day = today.getDay();
+        const offset = day >= 5 ? (day-5) : (day+2);
+        const lastFriday = new Date(today);
+        lastFriday.setDate(today.getDate() - offset);
         const cutoff = lastFriday.toISOString().slice(0,10);
 
         const latest = rows.filter(r => r.date <= cutoff).slice(-1)[0] || rows[rows.length-1];
