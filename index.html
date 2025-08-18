@@ -166,7 +166,7 @@
 
     function renderChart(rows){
       const labels   = rows.map(r => r.week || formatBE(r.date));
-      const contract = rows.map(r => (r.contract_price==null ? null : Number(r.contract_price)));
+      const contract = rows.map(r => (r.contract_price_ff==null ? null : Number(r.contract_price_ff)));
       const quote    = rows.map(r => (r.notering==null       ? null : Number(r.notering)));
 
       // Waarden voor schaal: negeer null/0 en bescherm tegen uitschieters
