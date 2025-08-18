@@ -1,45 +1,44 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Belgapom Notering</title>
-  <!-- Tailwind (CDN) for quick styling; replace with compiled CSS later if desired -->
+  <title>Belgapom – Notering</title>
+  <meta name="description" content="Contractprijzen en wekelijkse notering voor vrije aardappelen." />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js for the line chart -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-  <meta name="description" content="Wekelijkse Belgapom-notering: gemiddelde prijs en marktstemming." />
   <style>
-    @media print {
-      .no-print { display: none !important; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    :root {
+      --brand-cream: #f0ebd8;
+      --brand-navy:  #0d1321;
+      --brand-blue:  #1d2d44;
+      --brand-gray:  #748cab;
     }
+    body { background: var(--brand-cream); color: var(--brand-navy); }
+    header { border-bottom: 1px solid rgba(13,19,33,.08); }
+    .card { background:#fff; border-radius: 1rem; box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+    .kpi-label { color: var(--brand-gray); font-size: 12px; }
+    .kpi-value { color: var(--brand-navy); }
+    @media print { .no-print { display:none !important } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
-  <style>
-  :root {
-    --brand-cream: #f0ebd8;
-    --brand-navy:  #0d1321;
-    --brand-blue:  #1d2d44;
-    --brand-gray:  #748cab;
-  }
-  body   { background: var(--brand-cream); }
-  header { border-color: rgba(13,19,33,.08); }
-  .kpi-label { color: var(--brand-gray); font-size: 12px; }
-  .kpi-value { color: var(--brand-navy); }
-</style>
 </head>
-<body class="bg-gray-50 text-slate-900">
+<body>
   <!-- Header -->
-  <header class="bg-white border-b sticky top-0 z-10">
+  <header class="sticky top-0 z-10 bg-white/80 backdrop-blur">
     <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img src="/assets/belgapom-logo.svg" alt="Belgapom" class="h-10 w-auto" />
+        <!-- Swap the placeholder with your logo file placed in /assets/ -->
+        <img src="assets/belgapom-logo.svg" alt="Belgapom" class="h-9 w-auto" onerror="this.style.display='none'"/>
         <div>
-          <h1 class="text-xl font-semibold">Belgapom Notering</h1>
-          <p class="text-sm text-slate-500">Wekelijkse gemiddelde prijs vrije aardappelen</p>
+          <h1 class="text-xl font-semibold">Belgapom – Notering</h1>
+          <p class="text-sm text-gray-500">Contractprijzen en wekelijkse notering (vrije aardappelen)</p>
         </div>
       </div>
-      <button class="no-print px-4 py-2 rounded-xl border hover:bg-gray-50" onclick="window.print()">Download PDF</button>
+      <div class="flex items-center gap-2 no-print">
+        <a id="adminLink" href="#" target="_blank" class="px-3 py-2 rounded-xl border">Admin</a>
+        <button class="px-3 py-2 rounded-xl border" onclick="window.print()">Download PDF</button>
+      </div>
     </div>
   </header>
 
@@ -47,105 +46,172 @@
   <main class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-6">
     <!-- KPIs + Chart -->
     <section class="md:col-span-2 space-y-6">
-      <div class="bg-white rounded-2xl shadow p-5 grid grid-cols-2 md:grid-cols-4 gap-4" id="kpi">
+      <div class="card p-5 grid grid-cols-2 md:grid-cols-4 gap-4" id="kpis">
         <div>
-          <div class="text-xs text-slate-500">Gemiddelde prijs</div>
-          <div class="text-2xl font-semibold" id="kpi-price">–</div>
+          <div class="kpi-label">Notering</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-quote">–</div>
         </div>
         <div>
-          <div class="text-xs text-slate-500">Week</div>
-          <div class="text-2xl font-semibold" id="kpi-week">–</div>
+          <div class="kpi-label">Contractprijs</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-contract">–</div>
         </div>
         <div>
-          <div class="text-xs text-slate-500">Datum</div>
-          <div class="text-2xl font-semibold" id="kpi-date">–</div>
+          <div class="kpi-label">Week</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-week">–</div>
         </div>
         <div>
-          <div class="text-xs text-slate-500">Marktstemming</div>
-          <div class="mt-1"><span id="kpi-sentiment" class="inline-block px-3 py-1 rounded-full text-white bg-gray-500">–</span></div>
+          <div class="kpi-label">Datum</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-date">–</div>
+        </div>
+        <div class="col-span-2 md:col-span-4">
+          <div class="kpi-label">Marktstemming</div>
+          <span id="kpi-sentiment" class="inline-block mt-1 px-3 py-1 rounded-full text-white bg-gray-600 text-sm">–</span>
         </div>
       </div>
 
-      <div class="bg-white rounded-2xl shadow p-5">
+      <div class="card p-5">
         <div class="flex items-center gap-2 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3.75 3A.75.75 0 0 0 3 3.75v16.5a.75.75 0 0 0 1.28.53l5.97-6.135 4.48 4.48a.75.75 0 0 0 1.06 0l5.25-5.25a.75.75 0 0 0 0-1.06l-1.5-1.5a.75.75 0 0 0-1.06 0L15 14.94l-4.47-4.47a.75.75 0 0 0-1.06 0L4.5 15.44V3.75A.75.75 0 0 0 3.75 3z"/></svg>
-          <h2 class="text-lg font-semibold">Historiek gemiddelde prijs</h2>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15Zm3 3A.75.75 0 0 0 5.25 8v8a.75.75 0 0 0 1.5 0V8A.75.75 0 0 0 6 7.5Zm4.5 3A.75.75 0 0 0 9.75 11v5a.75.75 0 0 0 1.5 0v-5a.75.75 0 0 0-.75-.75ZM15 9a.75.75 0 0 0-.75.75v6.25a.75.75 0 0 0 1.5 0V9.75A.75.75 0 0 0 15 9Zm3-1.5a.75.75 0 0 0-.75.75V18a.75.75 0 0 0 1.5 0V8.25a.75.75 0 0 0-.75-.75Z"/></svg>
+          <h2 class="text-lg font-semibold">Historiek</h2>
         </div>
-        <canvas id="priceChart" height="280"></canvas>
+        <canvas id="chart" height="300"></canvas>
       </div>
     </section>
 
-    <!-- Info / Footer side -->
+    <!-- Side -->
     <aside class="space-y-4">
-      <div class="bg-white rounded-2xl shadow p-5">
-        <h3 class="font-semibold mb-2">Over deze notering</h3>
-        <p class="text-sm text-slate-600">De waarden op deze pagina worden wekelijks bijgewerkt door Belgapom. De grafiek toont de evolutie van het gemiddelde (€/ton) van vrije aardappelen.</p>
-      </div>
-      <div class="bg-white rounded-2xl shadow p-5 text-sm text-slate-600">
+      <div class="card p-5 text-sm text-slate-700">
         <p class="mb-2">Laatste update: <span id="lastUpdate">–</span></p>
         <p class="mb-2">Bron: interne rapportering</p>
         <p class="text-xs">© <span id="year"></span> Belgapom</p>
       </div>
-      <div class="no-print bg-white rounded-2xl shadow p-5 text-sm text-slate-600">
-        <h4 class="font-semibold mb-2">Opmerking</h4>
-        <p>Deze pagina leest data uit een beveiligde Google Sheet of API. Admin-invoer gebeurt via een Google Form of een afgeschermde webapp (geen kosten).</p>
+      <div class="card p-5 text-sm text-slate-700">
+        <h3 class="font-semibold mb-2">Recent</h3>
+        <div id="recent" class="space-y-1">Laden…</div>
+      </div>
+      <div class="card p-5 text-sm text-slate-700 no-print">
+        <h3 class="font-semibold mb-2">Export</h3>
+        <div class="flex gap-2 flex-wrap">
+          <button id="btnCSV" class="px-3 py-2 rounded-xl border">Download CSV</button>
+          <button id="btnJSON" class="px-3 py-2 rounded-xl border">Download JSON</button>
+        </div>
       </div>
     </aside>
   </main>
 
   <script>
-    const APP_SCRIPT_JSON_URL = https://script.google.com/macros/s/AKfycbw_yyrDWGbRpzMQ01dLcytmzjLnUusaHi8bInR9Tctlz3oiTJNmmk38tz5-I7yfhN2d2Q/exec; // e.g. https://script.google.com/macros/s/XXXX/exec
+    // ====== CONFIG ======
+    const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbxswNnwxNwC5K0xXBI49VavvPcsU-V73N_fsHKa0PjudlsT9lfq7XCojB-o51XwMwrKuA/exec?mode=json";
+    const ADMIN_URL = "https://script.google.com/macros/s/AKfycbyYG04GKJN0rMMYJVaAxCLF9SS60a7xTw5sfwnbJa4bQZSbV6omDGXTr1h_dgD7E50NnA/exec?mode=admin";
 
-    function euro(v) { try { return new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(v)); } catch(e){ return v; } }
-    function sentimentColor(s){
-      const k = (s||'').toLowerCase();
-      if (k === 'positief') return 'bg-green-600';
-      if (k === 'negatief') return 'bg-red-600';
-      return 'bg-gray-600';
+    // ====== HELPERS ======
+    const euro = v => (v==null||v==='') ? '–' : new Intl.NumberFormat('nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
+    function badgeClass(s){
+      s = (s||'').toLowerCase();
+      if (s==='positief') return 'bg-green-600';
+      if (s==='negatief') return 'bg-red-600';
+      if (s==='stabiel' || s==='neutraal') return 'bg-gray-600';
+      return 'bg-gray-500';
+    }
+    async function fetchJSON(url){
+      const res = await fetch(url, { cache: 'no-store' });
+      const txt = await res.text();
+      if (!txt) throw new Error('Lege respons');
+      if (txt.trim().startsWith('<')) throw new Error('Server gaf HTML terug i.p.v. JSON');
+      try { return JSON.parse(txt); } catch(e){ throw new Error('Ongeldig JSON: '+e.message); }
     }
 
-    async function loadData(){
-      try {
-        const res = await fetch(APP_SCRIPT_JSON_URL, { cache: 'no-store' });
-        const json = await res.json();
-        // Expecting: { rows: [{date:"2025-08-04", week:"W32 2025", avg:112, sentiment:"positief"}, ...] }
-        const rows = (json && json.rows) ? json.rows : [];
-        if (!rows.length) return;
-        // Sort by date asc
-        rows.sort((a,b)=> new Date(a.date) - new Date(b.date));
-        const last = rows[rows.length-1];
-        document.getElementById('kpi-price').textContent = euro(last.avg);
-        document.getElementById('kpi-week').textContent = last.week || '–';
-        document.getElementById('kpi-date').textContent = last.date || '–';
-        const badge = document.getElementById('kpi-sentiment');
-        badge.textContent = last.sentiment || '–';
-        badge.className = `inline-block px-3 py-1 rounded-full text-white ${sentimentColor(last.sentiment)}`;
-        document.getElementById('lastUpdate').textContent = new Date().toLocaleString('nl-BE');
-        document.getElementById('year').textContent = new Date().getFullYear();
+    // ====== RENDER ======
+    let chart;
 
-        // Chart
-        const labels = rows.map(r=> r.week || r.date);
-        const data = rows.map(r=> Number(r.avg));
-        const ctx = document.getElementById('priceChart');
-        new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels,
-            datasets: [{ label: 'Gemiddelde prijs (€/ton)', data, borderWidth: 3, fill: false, tension: 0.3 }]
+    function renderKPI(latest){
+      document.getElementById('kpi-quote').textContent = euro(latest.notering);
+      document.getElementById('kpi-contract').textContent = euro(latest.contract_price);
+      document.getElementById('kpi-week').textContent = latest.week || '–';
+      document.getElementById('kpi-date').textContent = latest.date || '–';
+      const b = document.getElementById('kpi-sentiment');
+      b.textContent = latest.marktstemming || '–';
+      b.className = 'inline-block mt-1 px-3 py-1 rounded-full text-white text-sm ' + badgeClass(latest.marktstemming);
+      document.getElementById('lastUpdate').textContent = new Date().toLocaleString('nl-BE');
+      document.getElementById('year').textContent = new Date().getFullYear();
+    }
+
+    function renderChart(rows){
+      const labels = rows.map(r => r.week || r.date);
+      const contract = rows.map(r => (r.contract_price==null? null : Number(r.contract_price)));
+      const quote    = rows.map(r => (r.notering==null? null : Number(r.notering)));
+      const ctx = document.getElementById('chart');
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Contractprijs (€/ton)', data: contract, borderWidth: 3, pointRadius: 3, borderColor: '#1d2d44', backgroundColor: 'transparent' },
+            { label: 'Notering (€/ton)',      data: quote,    borderWidth: 3, pointRadius: 3, borderColor: '#748cab', backgroundColor: 'transparent' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y: { ticks: { callback: v => `${v} €` } }
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { y: { ticks: { callback: (v)=> `${v} €` } } },
-            plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${euro(c.raw)}` } } }
-          }
-        });
-      } catch (e) {
-        console.error(e);
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+    }
+
+    function renderRecent(rows){
+      const el = document.getElementById('recent');
+      const last = rows.slice(-8).reverse();
+      el.innerHTML = last.map(r => (
+        `<div class="flex items-center justify-between py-1">
+           <span>${r.date} (${r.week})</span>
+           <span class="tabular-nums">${euro(r.notering)}</span>
+         </div>`
+      )).join('');
+    }
+
+    function download(filename, text){
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], {type:'text/plain'}));
+      a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+    }
+    function toCSV(rows){
+      const cols = ['date','week','contract_price','notering','marktstemming'];
+      const head = cols.join(',');
+      const body = rows.map(r => cols.map(c => (r[c]??'')).join(',')).join('\n');
+      return head+'\n'+body;
+    }
+
+    async function init(){
+      // Admin link
+      document.getElementById('adminLink').href = ADMIN_URL;
+      try {
+        const data = await fetchJSON(APP_SCRIPT_JSON_URL);
+        const rows = Array.isArray(data.rows)? data.rows: [];
+        if (!rows.length) throw new Error('Geen rijen in data');
+        // sorteren voor de zekerheid
+        rows.sort((a,b)=> a.date.localeCompare(b.date));
+        const latest = rows[rows.length-1];
+        renderKPI(latest);
+        renderChart(rows);
+        renderRecent(rows);
+        // Exports
+        document.getElementById('btnCSV').onclick = ()=> download('belgapom_notering.csv', toCSV(rows));
+        document.getElementById('btnJSON').onclick= ()=> download('belgapom_notering.json', JSON.stringify(rows));
+      } catch(err){
+        // Graceful error UI
+        document.getElementById('kpis').innerHTML = `<div class="text-sm text-red-700">Kon data niet laden: ${err.message}. Controleer of de JSON-URL juist is en '?mode=json' bevat.</div>`;
+        const ctx = document.getElementById('chart').getContext('2d');
+        ctx.font = '14px system-ui'; ctx.fillStyle = '#999'; ctx.fillText('Geen data beschikbaar', 10, 20);
+        document.getElementById('recent').textContent = '—';
       }
     }
 
-    loadData();
+    init();
   </script>
 </body>
 </html>
