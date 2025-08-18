@@ -198,7 +198,19 @@
     }
 
     // ====== HELPERS ======
-    const euro = v => (v==null||v==='') ? '–' : new Intl.NumberFormat('nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
+    function parseCurrency(v){
+      if (v==null || v==='') return null;
+      if (typeof v === 'number') return v;
+      if (typeof v === 'string'){
+        const num = Number(v.replace(/[€\s]/g,'').replace(',', '.'));
+        return Number.isFinite(num) ? num : null;
+      }
+      return null;
+    }
+    const euro = v => {
+      const num = parseCurrency(v);
+      return (num==null) ? '–' : new Intl.NumberFormat('nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(num);
+    };
     function badgeClass(sent){
       const s = String(sent||'').toLowerCase();
       // steun kleuren op NL labels; mapping van FR naar NL hieronder bij renderKPI
@@ -236,8 +248,9 @@
     let chart;
 
     function renderKPI(latest){
+      const contractVal = latest.contract_price_ff ?? latest.contract_price ?? latest.contractprijs;
       document.getElementById('kpi-quote').textContent = euro(latest.notering);
-      document.getElementById('kpi-contract').textContent = euro(latest.contract_price_ff ?? latest.contract_price);
+      document.getElementById('kpi-contract').textContent = euro(contractVal);
       document.getElementById('kpi-week').textContent = latest.week || '–';
       document.getElementById('kpi-date').textContent = formatBE(latest.date);
 
@@ -268,10 +281,10 @@
     function renderChart(rows){
       const labels   = rows.map(r => r.week || formatBE(r.date));
       const contract = rows.map(r => {
-        const v = r.contract_price_ff ?? r.contract_price;
-        return (v==null ? null : Number(v));
+        const v = r.contract_price_ff ?? r.contract_price ?? r.contractprijs;
+        return parseCurrency(v);
       });
-      const quote    = rows.map(r => (r.notering==null ? null : Number(r.notering)));
+      const quote    = rows.map(r => parseCurrency(r.notering));
 
       // schaalbepaling met guard tegen uitschieters
       const vals = [...contract, ...quote].filter(v => Number.isFinite(v) && v > 0);
