@@ -28,7 +28,7 @@
         <img src="assets/belgapom-logo.svg" alt="Belgapom" class="h-9 w-auto" onerror="this.style.display='none'"/>
         <div>
           <h1 class="text-xl font-semibold" data-i18n="title">Belgapom – Notering</h1>
-          <p class="text-sm text-gray-500" data-i18n="subtitle">Contractprijzen en wekelijkse notering </p>
+          <p class="text-sm text-gray-500" data-i18n="subtitle">Contractprijzen en wekelijkse notering (vrije aardappelen)</p>
         </div>
       </div>
       <div class="flex items-center gap-2 no-print">
@@ -139,7 +139,7 @@
         last_update_label:"Laatste update", source:"Bron: interne rapportering"
       },
       fr: {
-        title:"Belgapom – Cotation", subtitle:"Prix contractuels et cotation hebdomadaire ", download:"Télécharger PDF",
+        title:"Belgapom – Cotation", subtitle:"Prix contractuels et cotation hebdomadaire (pommes de terre libres)", download:"Télécharger PDF",
         history:"Historique", kpi_quote:"Cotation", kpi_contract:"Prix contractuel", kpi_week:"Semaine", kpi_date:"Date", kpi_sentiment:"Tendance du marché",
         legend_title:"Légende – tendance du marché",
         legend_weak:"Faible — l'offre est supérieure à la demande",
@@ -196,32 +196,21 @@
       return (base<=1?1:base<=2?2:base<=5?5:10) * pow10;
     }
 
-    // ====== Seizoensfilter ======
-    // Zet mode op 'fixed' met jouw grenzen, of op 'current' om automatisch W30 vorig jaar -> W29 dit jaar te nemen op basis van laatste datum in feed.
-    const SEASON = { mode: 'fixed' }; // 'fixed' | 'current'
+    // ====== Seizoensfilter (fixed: W30 2024 → W29 2025) ======
+    const SEASON = { mode: 'fixed' };
     const SEASON_FIXED = { startYear: 2024, startWeek: 30, endYear: 2025, endWeek: 29 };
 
     function isoWeekStartDate(year, week){
-      // Maandag van ISO-week
       const simple = new Date(year, 0, 1 + (week - 1) * 7);
-      let dow = simple.getDay(); if (dow === 0) dow = 7; // 1..7
+      let dow = simple.getDay(); if (dow === 0) dow = 7;
       const monday = new Date(simple);
       monday.setDate(simple.getDate() - dow + 1);
       return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
     }
     function seasonBounds(rows){
-      if (SEASON.mode === 'fixed') {
-        const start = isoWeekStartDate(SEASON_FIXED.startYear, SEASON_FIXED.startWeek);            // maandag
-        const end   = isoWeekStartDate(SEASON_FIXED.endYear,   SEASON_FIXED.endWeek); end.setDate(end.getDate()+6); // zondag
-        return { start, end, label: `W${SEASON_FIXED.startWeek} ${SEASON_FIXED.startYear} – W${SEASON_FIXED.endWeek} ${SEASON_FIXED.endYear}` };
-      }
-      // current season (afhankelijk van laatste datum in data)
-      const last = rows.length ? new Date(rows[rows.length-1].date + 'T00:00:00') : new Date();
-      const endYear = last.getFullYear();
-      const startYear = endYear - 1;
-      const start = isoWeekStartDate(startYear, 30);
-      const end   = isoWeekStartDate(endYear, 29); end.setDate(end.getDate()+6);
-      return { start, end, label: `W30 ${startYear} – W29 ${endYear}` };
+      const start = isoWeekStartDate(SEASON_FIXED.startYear, SEASON_FIXED.startWeek);
+      const end   = isoWeekStartDate(SEASON_FIXED.endYear,   SEASON_FIXED.endWeek); end.setDate(end.getDate()+6);
+      return { start, end, label: `W${SEASON_FIXED.startWeek} ${SEASON_FIXED.startYear} – W${SEASON_FIXED.endWeek} ${SEASON_FIXED.endYear}` };
     }
 
     let chart;
@@ -240,12 +229,22 @@
 
     function renderChart(rows){
       const labels = rows.map(r => r.week || formatBE(r.date));
-      const contract = rows.map(r => {
-        const v = r.contract_price_ff ?? r.contract_price;
-        return v==null ? null : Number(v);
-      });
-      const quote = rows.map(r => r.notering==null ? null : Number(r.notering));
 
+      // ---- CONTRACT: neem server ff als beschikbaar, anders client-side forward fill
+      const rawContract = rows.map(r => {
+        const v = (r.contract_price_ff ?? r.contract_price);
+        return (v == null ? null : Number(v));
+      });
+      let last = null;
+      const contract = rawContract.map(v => {
+        if (Number.isFinite(v) && v > 0) { last = v; return v; }
+        return (last != null ? last : null);
+      });
+
+      // ---- NOTERING
+      const quote = rows.map(r => (r.notering==null ? null : Number(r.notering)));
+
+      // schaalbepaling
       const vals = [...contract, ...quote].filter(v => Number.isFinite(v) && v>0);
       let yMin=0, yMax=100, step=10;
       if (vals.length){
@@ -267,8 +266,25 @@
         data:{
           labels,
           datasets:[
-            { label: (LANG==='fr'?'Prix contractuel (€/tonne)':'Contractprijs (€/ton)'), data: contract, borderWidth:3, pointRadius:3, borderColor:'#1d2d44', backgroundColor:'transparent', spanGaps:true },
-            { label: (LANG==='fr'?'Cotation (€/tonne)':'Notering (€/ton)'),             data: quote,    borderWidth:3, pointRadius:3, borderColor:'#748cab', backgroundColor:'transparent', spanGaps:true }
+            {
+              label: (LANG==='fr'?'Prix contractuel (€/tonne)':'Contractprijs (€/ton)'),
+              data: contract,
+              borderWidth: 3,
+              pointRadius: 4,
+              borderColor: '#1d2d44',
+              backgroundColor: 'transparent',
+              spanGaps: true,
+              stepped: true         // <<< trapvormig en doorlopend tussen updates
+            },
+            {
+              label: (LANG==='fr'?'Cotation (€/tonne)':'Notering (€/ton)'),
+              data: quote,
+              borderWidth: 3,
+              pointRadius: 3,
+              borderColor: '#748cab',
+              backgroundColor: 'transparent',
+              spanGaps: true
+            }
           ]
         },
         options:{
@@ -281,8 +297,8 @@
 
     async function init(){
       // taal-schakelaar
-      document.getElementById('btn-nl').onclick = ()=>{ LANG='nl'; applyI18N(); if (window.__rows){ renderKPI(window.__latest); renderChart(window.__seasonRows);} };
-      document.getElementById('btn-fr').onclick = ()=>{ LANG='fr'; applyI18N(); if (window.__rows){ renderKPI(window.__latest); renderChart(window.__seasonRows);} };
+      document.getElementById('btn-nl').onclick = ()=>{ LANG='nl'; applyI18N(); if (window.__seasonRows){ renderKPI(window.__latest); renderChart(window.__seasonRows);} };
+      document.getElementById('btn-fr').onclick = ()=>{ LANG='fr'; applyI18N(); if (window.__seasonRows){ renderKPI(window.__latest); renderChart(window.__seasonRows);} };
       applyI18N();
 
       try{
@@ -290,10 +306,10 @@
         const rowsAll = Array.isArray(data.rows)? data.rows : [];
         if (!rowsAll.length) throw new Error('Geen rijen in data');
 
-        // FEIT: backend is al gesorteerd; sorteer voor de zekerheid toch.
+        // sorteer (feed zou al gesorteerd moeten zijn, maar veiligheidshalve nog eens)
         rowsAll.sort((a,b)=> a.date.localeCompare(b.date));
 
-        // Seizoensgrenzen bepalen en filteren
+        // Seizoensfilter: W30 2024 → W29 2025
         const { start, end, label } = seasonBounds(rowsAll);
         document.getElementById('seasonLabel').textContent = label;
 
@@ -303,7 +319,7 @@
         });
         if (!seasonRows.length) throw new Error('Geen rijen binnen seizoensinterval');
 
-        // “actueel” = laatste vrijdag → donderdag binnen het seizoen
+        // Actueel: laatste vrijdag → donderdag binnen het seizoen
         const nowBE = new Date(new Date().toLocaleString('en-US', { timeZone:'Europe/Brussels' }));
         const day = nowBE.getDay(); // 0=zo .. 5=vr
         const offsetToFriday = (day>=5) ? (day-5) : (day+2);
@@ -313,8 +329,6 @@
         let latest = seasonRows[seasonRows.length-1];
         for (let i=seasonRows.length-1;i>=0;i--) if (seasonRows[i].date <= cutoffIso){ latest = seasonRows[i]; break; }
 
-        // stash for language re-render
-        window.__rows = rowsAll;
         window.__seasonRows = seasonRows;
         window.__latest = latest;
 
