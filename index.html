@@ -69,11 +69,14 @@
       </div>
 
       <div class="card p-5">
-        <div class="flex items-center gap-2 mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15Zm3 3A.75.75 0 0 0 5.25 8v8a.75.75 0 0 0 1.5 0V8A.75.75 0 0 0 6 7.5Zm4.5 3A.75.75 0 0 0 9.75 11v5a.75.75 0 0 0 1.5 0v-5a.75.75 0 0 0-.75-.75ZM15 9a.75.75 0 0 0-.75.75v6.25a.75.75 0 0 0 1.5 0V9.75A.75.75 0 0 0 15 9Zm3-1.5a.75.75 0 0 0-.75.75V18a.75.75 0 0 0 1.5 0V8.25a.75.75 0 0 0-.75-.75Z"/></svg>
-          <h2 class="text-lg font-semibold" data-i18n="history">Historiek</h2>
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15Zm3 3A.75.75 0 0 0 5.25 8v8a.75.75 0 0 0 1.5 0V8A.75.75 0 0 0 6 7.5Zm4.5 3A.75.75 0 0 0 9.75 11v5a.75.75 0 0 0 1.5 0v-5a.75.75 0 0 0-.75-.75ZM15 9a.75.75 0 0 0-.75.75v6.25a.75.75 0 0 0 1.5 0V9.75A.75.75 0 0 0 15 9Zm3-1.5a.75.75 0 0 0-.75.75V18a.75.75 0 0 0 1.5 0V8.25a.75.75 0 0 0-.75-.75Z"/></svg>
+            <h2 class="text-lg font-semibold" data-i18n="history">Historiek</h2>
+          </div>
+          <div id="seasonLabel" class="text-sm text-gray-600"></div>
         </div>
-      <div class="relative h-[400px]"><canvas id="chart"></canvas></div>
+        <div class="relative h-[420px]"><canvas id="chart"></canvas></div>
 
         <!-- Legende marktstemming -->
         <div class="mt-6 p-4 border rounded bg-slate-50 text-sm">
@@ -111,7 +114,7 @@
   </main>
 
   <script>
-    // ====== JSON-URL (nieuw) ======
+    // ====== JSON-URL ======
     const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbxlS3ObwycxBQm6qnr2BnN1Zsd7v88noImi6GxXv_eGzJMp78cuuDPRDrLfIa55HCWRFA/exec?mode=json";
 
     // ====== I18N ======
@@ -193,6 +196,34 @@
       return (base<=1?1:base<=2?2:base<=5?5:10) * pow10;
     }
 
+    // ====== Seizoensfilter ======
+    // Zet mode op 'fixed' met jouw grenzen, of op 'current' om automatisch W30 vorig jaar -> W29 dit jaar te nemen op basis van laatste datum in feed.
+    const SEASON = { mode: 'fixed' }; // 'fixed' | 'current'
+    const SEASON_FIXED = { startYear: 2024, startWeek: 30, endYear: 2025, endWeek: 29 };
+
+    function isoWeekStartDate(year, week){
+      // Maandag van ISO-week
+      const simple = new Date(year, 0, 1 + (week - 1) * 7);
+      let dow = simple.getDay(); if (dow === 0) dow = 7; // 1..7
+      const monday = new Date(simple);
+      monday.setDate(simple.getDate() - dow + 1);
+      return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
+    }
+    function seasonBounds(rows){
+      if (SEASON.mode === 'fixed') {
+        const start = isoWeekStartDate(SEASON_FIXED.startYear, SEASON_FIXED.startWeek);            // maandag
+        const end   = isoWeekStartDate(SEASON_FIXED.endYear,   SEASON_FIXED.endWeek); end.setDate(end.getDate()+6); // zondag
+        return { start, end, label: `W${SEASON_FIXED.startWeek} ${SEASON_FIXED.startYear} – W${SEASON_FIXED.endWeek} ${SEASON_FIXED.endYear}` };
+      }
+      // current season (afhankelijk van laatste datum in data)
+      const last = rows.length ? new Date(rows[rows.length-1].date + 'T00:00:00') : new Date();
+      const endYear = last.getFullYear();
+      const startYear = endYear - 1;
+      const start = isoWeekStartDate(startYear, 30);
+      const end   = isoWeekStartDate(endYear, 29); end.setDate(end.getDate()+6);
+      return { start, end, label: `W30 ${startYear} – W29 ${endYear}` };
+    }
+
     let chart;
 
     function renderKPI(latest){
@@ -250,32 +281,47 @@
 
     async function init(){
       // taal-schakelaar
-      document.getElementById('btn-nl').onclick = ()=>{ LANG='nl'; applyI18N(); if (window.__rows){ renderKPI(window.__latest); renderChart(window.__rows);} };
-      document.getElementById('btn-fr').onclick = ()=>{ LANG='fr'; applyI18N(); if (window.__rows){ renderKPI(window.__latest); renderChart(window.__rows);} };
+      document.getElementById('btn-nl').onclick = ()=>{ LANG='nl'; applyI18N(); if (window.__rows){ renderKPI(window.__latest); renderChart(window.__seasonRows);} };
+      document.getElementById('btn-fr').onclick = ()=>{ LANG='fr'; applyI18N(); if (window.__rows){ renderKPI(window.__latest); renderChart(window.__seasonRows);} };
       applyI18N();
 
       try{
         const data = await fetchJSON(APP_SCRIPT_JSON_URL);
-        const rows = Array.isArray(data.rows)? data.rows : [];
-        if (!rows.length) throw new Error('Geen rijen in data');
-        rows.sort((a,b)=> a.date.localeCompare(b.date));
+        const rowsAll = Array.isArray(data.rows)? data.rows : [];
+        if (!rowsAll.length) throw new Error('Geen rijen in data');
 
-        // Vrijdag→Donderdag-regel (Europe/Brussels)
+        // FEIT: backend is al gesorteerd; sorteer voor de zekerheid toch.
+        rowsAll.sort((a,b)=> a.date.localeCompare(b.date));
+
+        // Seizoensgrenzen bepalen en filteren
+        const { start, end, label } = seasonBounds(rowsAll);
+        document.getElementById('seasonLabel').textContent = label;
+
+        const seasonRows = rowsAll.filter(r => {
+          const d = new Date(r.date + 'T00:00:00');
+          return d >= start && d <= end;
+        });
+        if (!seasonRows.length) throw new Error('Geen rijen binnen seizoensinterval');
+
+        // “actueel” = laatste vrijdag → donderdag binnen het seizoen
         const nowBE = new Date(new Date().toLocaleString('en-US', { timeZone:'Europe/Brussels' }));
         const day = nowBE.getDay(); // 0=zo .. 5=vr
         const offsetToFriday = (day>=5) ? (day-5) : (day+2);
         const lastFriday = new Date(nowBE); lastFriday.setDate(nowBE.getDate()-offsetToFriday);
-        const cutoff = lastFriday.toISOString().slice(0,10);
+        const cutoffIso = lastFriday.toISOString().slice(0,10);
 
-        let latest = rows[rows.length-1];
-        for (let i=rows.length-1;i>=0;i--) if (rows[i].date <= cutoff){ latest = rows[i]; break; }
+        let latest = seasonRows[seasonRows.length-1];
+        for (let i=seasonRows.length-1;i>=0;i--) if (seasonRows[i].date <= cutoffIso){ latest = seasonRows[i]; break; }
 
-        window.__rows = rows; window.__latest = latest;
+        // stash for language re-render
+        window.__rows = rowsAll;
+        window.__seasonRows = seasonRows;
+        window.__latest = latest;
 
         renderKPI(latest);
-        renderChart(rows);
+        renderChart(seasonRows);
       }catch(err){
-        document.getElementById('kpis').innerHTML = `<div class="text-sm text-red-700">Kon data niet laden: ${err.message}. Controleer of de JSON-URL juist is en '?mode=json' bevat.</div>`;
+        document.getElementById('kpis').innerHTML = `<div class="text-sm text-red-700">Kon data niet laden: ${err.message}.</div>`;
         const ctx = document.getElementById('chart').getContext('2d');
         ctx.font='14px system-ui'; ctx.fillStyle='#999'; ctx.fillText('Geen data beschikbaar / Pas de données',10,20);
       }
