@@ -187,7 +187,7 @@
     }
 
     // Primeur shading in year X+1
-    const Y2 = seasonStartYear+1;
+    const Y2 = seasonStartYear;
     const pStart = thirdMonday(Y2, 6);  // July (6)
     const pEndMon = thirdMonday(Y2, 8); // September (8)
     const pEnd = new Date(pEndMon); pEnd.setDate(pEndMon.getDate()+6);
@@ -245,7 +245,7 @@
       const monday=isoWeekStart(year, w);
       const tr=document.createElement('tr'); tr.className="border-b border-slate-100";
       // primeur highlight
-      const Y2=seasonStartYear+1, pS=thirdMonday(Y2,6), pE=thirdMonday(Y2,8); const pEw=new Date(pE); pEw.setDate(pE.getDate()+6);
+      const Y2=seasonStartYear, pS=thirdMonday(Y2,6), pE=thirdMonday(Y2,8); const pEw=new Date(pE); pEw.setDate(pE.getDate()+6);
       if (monday>=pS && monday<=pEw) tr.style.background='rgba(255,206,86,.12)';
 
       tr.innerHTML=`<td class="py-1.5 pr-2">W${String(w).padStart(2,'0')}</td>
