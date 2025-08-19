@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Belgapom – Notering / Cotation</title>
+  <meta name="description" content="Contractprijzen en wekelijkse notering." />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
@@ -16,6 +17,7 @@
     .kpi-value { color: var(--brand-navy); }
     .btn { padding:.5rem .75rem; border:1px solid rgba(0,0,0,.1); border-radius:.75rem; }
     .btn.active { background:#0d1321; color:#fff; border-color:#0d1321; }
+    @media print { .no-print { display:none !important } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   </style>
 </head>
 <body>
@@ -24,8 +26,8 @@
       <div class="flex items-center gap-3">
         <img src="assets/belgapom-logo.svg" alt="Belgapom" class="h-9 w-auto" onerror="this.style.display='none'"/>
         <div>
-          <h1 class="text-xl font-semibold">Belgapom – Notering</h1>
-          <p class="text-sm text-gray-500">Contractprijzen en wekelijkse notering</p>
+          <h1 class="text-xl font-semibold" data-i18n="title">Belgapom – Notering</h1>
+          <p class="text-sm text-gray-500" data-i18n="subtitle">Contractprijzen en wekelijkse notering</p>
         </div>
       </div>
       <div class="flex items-center gap-2 no-print">
@@ -33,7 +35,7 @@
           <button id="btn-nl" class="btn active">NL</button>
           <button id="btn-fr" class="btn">FR</button>
         </div>
-        <button class="btn" onclick="window.print()">Download PDF</button>
+        <button class="btn" onclick="window.print()" data-i18n="download">Download PDF</button>
       </div>
     </div>
   </header>
@@ -41,35 +43,70 @@
   <main class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-6">
     <section class="md:col-span-2 space-y-6">
       <div class="card p-5 grid grid-cols-2 md:grid-cols-4 gap-4" id="kpis">
-        <div><div class="kpi-label">Notering</div><div class="kpi-value text-2xl font-semibold" id="kpi-quote">–</div></div>
-        <div><div class="kpi-label">Contractprijs</div><div class="kpi-value text-2xl font-semibold" id="kpi-contract">–</div></div>
-        <div><div class="kpi-label">Week</div><div class="kpi-value text-2xl font-semibold" id="kpi-week">–</div></div>
-        <div><div class="kpi-label">Datum</div><div class="kpi-value text-2xl font-semibold" id="kpi-date">–</div></div>
+        <div>
+          <div class="kpi-label" data-i18n="kpi_quote">Notering</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-quote">–</div>
+        </div>
+        <div>
+          <div class="kpi-label" data-i18n="kpi_contract">Contractprijs</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-contract">–</div>
+        </div>
+        <div>
+          <div class="kpi-label" data-i18n="kpi_week">Week</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-week">–</div>
+        </div>
+        <div>
+          <div class="kpi-label" data-i18n="kpi_date">Datum</div>
+          <div class="kpi-value text-2xl font-semibold" id="kpi-date">–</div>
+        </div>
+        <div class="col-span-2 md:col-span-4">
+          <div class="kpi-label" data-i18n="kpi_sentiment">Marktstemming</div>
+          <span id="kpi-sentiment" class="inline-block mt-1 px-3 py-1 rounded-full text-white bg-gray-600 text-sm">–</span>
+        </div>
       </div>
 
       <div class="card p-5">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15Z"/></svg>
-            <h2 class="text-lg font-semibold">Historiek</h2>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h15A1.5 1.5 0 0 1 21 4.5v15a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 19.5v-15Zm3 3A.75.75 0 0 0 5.25 8v8a.75.75 0 0 0 1.5 0V8A.75.75 0 0 0 6 7.5Zm4.5 3A.75.75 0 0 0 9.75 11v5a.75.75 0 0 0 1.5 0v-5a.75.75 0 0 0-.75-.75ZM15 9a.75.75 0 0 0-.75.75v6.25a.75.75 0 0 0 1.5 0V9.75A.75.75 0 0 0 15 9Zm3-1.5a.75.75 0 0 0-.75.75V18a.75.75 0 0 0 1.5 0V8.25a.75.75 0 0 0-.75-.75Z"/></svg>
+            <h2 class="text-lg font-semibold" data-i18n="history">Historiek</h2>
           </div>
           <div id="seasonLabel" class="text-sm text-gray-600"></div>
         </div>
         <div class="relative h-[420px]"><canvas id="chart"></canvas></div>
+
+        <div class="mt-6 p-4 border rounded bg-slate-50 text-sm">
+          <h3 class="font-semibold mb-2" data-i18n="legend_title">Legende marktstemming</h3>
+          <ul class="list-disc pl-5 space-y-1">
+            <li data-i18n="legend_weak"><strong>Flauw</strong> — aanbod is groter dan de vraag</li>
+            <li data-i18n="legend_calm"><strong>Rustig</strong> — aanbod is groter dan of gelijk aan de vraag</li>
+            <li data-i18n="legend_stable"><strong>Stabiel</strong> — aanbod is gelijk aan de vraag (evenwicht)</li>
+            <li data-i18n="legend_support"><strong>Prijshoudend</strong> — aanbod is kleiner dan of gelijk aan de vraag</li>
+            <li data-i18n="legend_firm"><strong>Vast</strong> — aanbod is kleiner dan de vraag</li>
+          </ul>
+        </div>
       </div>
     </section>
 
     <aside class="space-y-4">
       <div class="card p-5 text-sm text-slate-700">
-        <p class="mb-2">Laatste update: <span id="lastUpdate">–</span></p>
+        <p class="mb-2"><span data-i18n="last_update_label">Laatste update</span>: <span id="lastUpdate">–</span></p>
+        <p class="mb-2" data-i18n="source">Bron: interne rapportering</p>
         <p class="text-xs">© <span id="year"></span> Belgapom</p>
       </div>
     </aside>
   </main>
 
   <script>
-    // ========== JSON-URL (gebruik jouw nieuwste URL) ==========
+    // JSON-URL (Apps Script web app)
     const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbxXkCIga_MkeIkNPYtssLI9rA_sCBMUxRYYNH13ZXxj3MSkvObWk8w4bv1e_wcygJSzQw/exec?mode=json";
+
+    // I18N (kort gehouden)
+    let LANG = 'nl';
+    function applyI18N(){
+      document.getElementById('btn-nl').classList.toggle('active', LANG==='nl');
+      document.getElementById('btn-fr').classList.toggle('active', LANG==='fr');
+    }
 
     // Helpers
     const euro = v => (v==null||v==='') ? '–' : new Intl.NumberFormat('nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
@@ -77,7 +114,7 @@
       if (v == null) return null;
       if (typeof v === 'number') return isFinite(v) && v>0 ? v : null;
       if (typeof v === 'string') {
-        const s = v.replace(/€/g,'').replace(/eur/gi,'').replace(/\s+/g,'').replace(',', '.');
+        const s = v.replace(/[€\s]/g,'').replace(',', '.');
         const n = Number(s);
         return (isFinite(n) && n>0) ? n : null;
       }
@@ -90,24 +127,44 @@
       if (t.trim().startsWith('<')) throw new Error('Server gaf HTML terug i.p.v. JSON');
       return JSON.parse(t);
     }
-    function formatBE(iso){ if (!iso) return '–'; const d = new Date(iso+'T00:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
-    function niceStep(span){ const target=Math.max(1,span/7), p=10**Math.floor(Math.log10(target)), b=target/p; return (b<=1?1:b<=2?2:b<=5?5:10)*p; }
+    function formatBE(iso){
+      if (!iso) return '–';
+      const d = new Date(iso + 'T00:00:00');
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+    function niceStep(span){
+      const target = Math.max(1, span/7), pow10 = 10 ** Math.floor(Math.log10(target)), base = target/pow10;
+      return (base<=1?1:base<=2?2:base<=5?5:10) * pow10;
+    }
 
     // Seizoensfilter: W30 2024 → W29 2025
     const SEASON_FIXED = { startYear: 2024, startWeek: 30, endYear: 2025, endWeek: 29 };
     function isoWeekStartDate(year, week){
-      const simple = new Date(year,0,1+(week-1)*7); let dow=simple.getDay(); if(dow===0) dow=7;
-      const monday = new Date(simple); monday.setDate(simple.getDate()-dow+1); return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
+      const simple = new Date(year, 0, 1 + (week - 1) * 7);
+      let dow = simple.getDay(); if (dow === 0) dow = 7;
+      const monday = new Date(simple);
+      monday.setDate(simple.getDate() - dow + 1);
+      return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
     }
-    function seasonBounds(){ const s=isoWeekStartDate(SEASON_FIXED.startYear, SEASON_FIXED.startWeek); const e=isoWeekStartDate(SEASON_FIXED.endYear, SEASON_FIXED.endWeek); e.setDate(e.getDate()+6); return {start:s, end:e, label:`W${SEASON_FIXED.startWeek} ${SEASON_FIXED.startYear} – W${SEASON_FIXED.endWeek} ${SEASON_FIXED.endYear}`}; }
+    function seasonBounds(){
+      const start = isoWeekStartDate(SEASON_FIXED.startYear, SEASON_FIXED.startWeek);
+      const end   = isoWeekStartDate(SEASON_FIXED.endYear,   SEASON_FIXED.endWeek); end.setDate(end.getDate()+6);
+      return { start, end, label: `W${SEASON_FIXED.startWeek} ${SEASON_FIXED.startYear} – W${SEASON_FIXED.endWeek} ${SEASON_FIXED.endYear}` };
+    }
 
-    // Contract key autodetect (voorkeur NL + FF varianten)
-    function detectContractKey(row){
-      const prefer = ['contractprijs_ff','contract_price_ff','contractprijs','contract_price'];
-      for (const k of prefer) if (k in row) return k;
-      const candidates = ['contract','Contract','price_contract'];
-      for (const k of candidates) if (k in row) return k;
-      for (const [k,v] of Object.entries(row)){ if (k.toLowerCase().includes('notering')) continue; if (toNum(v)!=null) return k; }
+    // Detecteer contract key
+    function detectContractKey(sampleRow){
+      // NL prioriteit
+      const prefer = ['contractprijs','Contractprijs','ContractPrijs'];
+      for (const k of prefer){ if (k in sampleRow) return k; }
+      // Andere kandidaten
+      const candidates = ['contract_price_ff','contractprijs_ff','contract_price','contract','Contract'];
+      for (const k of candidates){ if (k in sampleRow) return k; }
+      // Fallback: eerste numeriek-achtige key die geen notering is
+      for (const [k,v] of Object.entries(sampleRow)){
+        if (k.toLowerCase().includes('notering')) continue;
+        if (toNum(v) != null) return k;
+      }
       return null;
     }
 
@@ -115,7 +172,8 @@
 
     function renderKPI(latest, contractKey){
       document.getElementById('kpi-quote').textContent = euro(latest.notering ?? latest.Notering);
-      document.getElementById('kpi-contract').textContent = euro(toNum(latest[contractKey]));
+      const cVal = toNum(latest[contractKey]);
+      document.getElementById('kpi-contract').textContent = euro(cVal);
       document.getElementById('kpi-week').textContent = latest.week || '–';
       document.getElementById('kpi-date').textContent = formatBE(latest.date);
       document.getElementById('lastUpdate').textContent = new Date().toLocaleString('nl-BE', { timeZone:'Europe/Brussels' });
@@ -171,8 +229,9 @@
     }
 
     async function init(){
-      document.getElementById('btn-nl').onclick = ()=>{ renderKPI(window.__latest, window.__contractKey); renderChart(window.__seasonRows, window.__contractKey); };
-      document.getElementById('btn-fr').onclick = ()=>{ renderKPI(window.__latest, window.__contractKey); renderChart(window.__seasonRows, window.__contractKey); };
+      document.getElementById('btn-nl').onclick = ()=>{ LANG='nl'; applyI18N(); if (window.__seasonRows){ renderKPI(window.__latest, window.__contractKey); renderChart(window.__seasonRows, window.__contractKey);} };
+      document.getElementById('btn-fr').onclick = ()=>{ LANG='fr'; applyI18N(); if (window.__seasonRows){ renderKPI(window.__latest, window.__contractKey); renderChart(window.__seasonRows, window.__contractKey);} };
+      applyI18N();
 
       try{
         const data = await fetchJSON(APP_SCRIPT_JSON_URL);
@@ -180,6 +239,10 @@
         if (!all.length) throw new Error('Geen rijen in data');
 
         all.sort((a,b)=> a.date.localeCompare(b.date));
+
+        // contract key detecteren (NL prioriteit)
+        let contractKey = detectContractKey(all[0] || {});
+        if (!contractKey) contractKey = 'contract_price_ff'; // veiligste fallback
 
         const { start, end, label } = seasonBounds();
         document.getElementById('seasonLabel').textContent = label;
@@ -190,21 +253,15 @@
         });
         if (!seasonRows.length) throw new Error('Geen rijen binnen seizoensinterval');
 
-        // Detecteer beste sleutel (NL/EN, FF)
-        let contractKey = detectContractKey(seasonRows.find(r => toNum(r.contractprijs ?? r.contract_price ?? r.contractprijs_ff ?? r.contract_price_ff ?? r.contract) != null) || seasonRows[0]);
-        if (!contractKey) contractKey = 'contract_price_ff';  // veilige fallback
-
-        // Actueel = laatste vrijdag <= vandaag
+        // Actueel: laatste vrijdag → donderdag binnen het seizoen
         const nowBE = new Date(new Date().toLocaleString('en-US', { timeZone:'Europe/Brussels' }));
-        const day = nowBE.getDay(); const offsetToFriday = (day>=5) ? (day-5) : (day+2);
+        const day = nowBE.getDay(); // 0=zo .. 5=vr
+        const offsetToFriday = (day>=5) ? (day-5) : (day+2);
         const lastFriday = new Date(nowBE); lastFriday.setDate(nowBE.getDate()-offsetToFriday);
         const cutoffIso = lastFriday.toISOString().slice(0,10);
+
         let latest = seasonRows[seasonRows.length-1];
         for (let i=seasonRows.length-1;i>=0;i--) if (seasonRows[i].date <= cutoffIso){ latest = seasonRows[i]; break; }
-
-        // debug in console
-        const nonNullCount = seasonRows.filter(r => toNum(r[contractKey]) != null).length;
-        console.log('Contract key:', contractKey, 'non-null in season:', nonNullCount);
 
         window.__seasonRows = seasonRows;
         window.__latest = latest;
