@@ -113,4 +113,178 @@
     document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; });
   }
 
-  // ====
+  // ====== helpers ======
+  const euro = v => (v==null||v==='') ? '–'
+    : new Intl.NumberFormat(LANG==='fr'?'fr-BE':'nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
+  const toNum = v => {
+    if (v==null||v==='') return null;
+    if (typeof v==='number') return isFinite(v)&&v>0 ? v : null;
+    const s=String(v).replace(/[€\s]/g,'').replace(',','.');
+    const n=Number(s); return isFinite(n)&&n>0 ? n : null;
+  };
+  const formatBE = iso => { if(!iso) return '–'; const d=new Date(iso+'T00:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` };
+
+  function setPressed(btn, on){
+    btn.setAttribute('aria-pressed', on?'true':'false');
+    if(on){ btn.classList.add('bg-[#0d1321]','text-white'); } else { btn.classList.remove('bg-[#0d1321]','text-white'); }
+  }
+
+  // ====== state ======
+  let chart, seasonRows=[], latest={}, showContract=true, showQuote=true, contractKey='contract_price_ff';
+
+  // ====== rendering ======
+  function renderKPI(){
+    document.getElementById('kpi-quote').textContent=euro(toNum(latest.notering));
+    document.getElementById('kpi-contract').textContent=euro(toNum(latest[contractKey]));
+    document.getElementById('kpi-week').textContent=latest.week_label||'–';
+    document.getElementById('kpi-date').textContent=formatBE(latest.date);
+    const b=document.getElementById('kpi-sentiment'); b.textContent=latest.marktstemming||'–';
+    const s=(latest.marktstemming||'').toLowerCase();
+    b.className='inline-block mt-1 px-3 py-1 rounded-full text-white text-xs ' + (
+      s.includes('vast')||s.includes('ferme') ? 'bg-green-600' :
+      s.includes('houd')||s.includes('soutenu') ? 'bg-yellow-600' :
+      s.includes('stabiel')||s.includes('stable') ? 'bg-slate-600' :
+      s.includes('rustig')||s.includes('calme') ? 'bg-slate-500' :
+      s.includes('flauw')||s.includes('faible')||s.includes('neg') ? 'bg-red-600' : 'bg-slate-600'
+    );
+    document.getElementById('lastUpdate').textContent=new Date().toLocaleString(LANG==='fr'?'fr-BE':'nl-BE',{timeZone:'Europe/Brussels'});
+    document.getElementById('year').textContent=new Date().getFullYear();
+  }
+
+  function niceStep(span){ const target=Math.max(1,span/6), pow10=10**Math.floor(Math.log10(target)), base=target/pow10; return (base<=1?1:base<=2?2:base<=5?5:10)*pow10; }
+
+  function renderChart(){
+    const labels = seasonRows.map(r=> r.week_label);
+    let contract = seasonRows.map(r=> toNum(r[contractKey]));
+    if (contract.every(v=>v==null)){
+      const kRaw=['contract_price','contractprijs','contract'].find(k=>k in (seasonRows[0]||{}))||'contract_price';
+      let last=null; contract=seasonRows.map(r=>{ const v=toNum(r[kRaw]); if(v!=null){ last=v; return v } return last });
+    }
+    const quote = seasonRows.map(r=> toNum(r.notering));
+    const cData = showContract ? contract : contract.map(()=>null);
+    const qData = showQuote ? quote    : quote.map(()=>null);
+
+    const vals=[...cData,...qData].filter(v=>Number.isFinite(v)&&v>0);
+    const ctx=document.getElementById('chart').getContext('2d');
+    if (!vals.length){
+      if (chart){ chart.destroy(); chart=null; }
+      ctx.clearRect(0,0,9999,9999); ctx.font='14px system-ui'; ctx.fillStyle='#b00020';
+      ctx.fillText(LANG==='fr'?'Aucune donnée pour cette saison.':'Geen cijfers beschikbaar voor dit seizoen.',10,22);
+      return;
+    }
+    const lo=Math.min(...vals), hi=Math.max(...vals), span=hi-lo, step=niceStep(span), pad=Math.max(10,Math.round(span*0.10));
+    const yMin=Math.max(0,Math.floor((lo-pad)/step)*step), yMax=Math.ceil((hi+pad)/step)*step;
+
+    // Primeurbanden op basis van is_primeur-flags (aaneengesloten stukken)
+    const bands=[]; let run=null;
+    seasonRows.forEach((r,i)=>{ if(r.is_primeur){ if(!run) run={from:i,to:i}; run.to=i; } else if(run){ bands.push(run); run=null; }});
+    if(run) bands.push(run);
+    const shadePrimeur = {
+      id:'shadePrimeur',
+      beforeDatasetsDraw(c, args){
+        const {ctx, chartArea, scales:{x}} = c; if(!chartArea) return;
+        const {top,bottom} = chartArea; ctx.save(); ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--primeur')||'rgba(255,206,86,.22)';
+        bands.forEach(b=>{ const x0=x.getPixelForValue(b.from); const x1=x.getPixelForValue(b.to); ctx.fillRect(x0, top, x1-x0, bottom-top); });
+        ctx.restore();
+      }
+    };
+
+    if (chart) chart.destroy();
+    chart = new Chart(ctx,{
+      type:'line',
+      data:{ labels, datasets:[
+        { label: LANG==='fr'?'Prix contractuel (€/tonne)':'Contractprijs (€/ton)', data:cData, borderWidth:3, pointRadius:3, borderColor:'#1d2d44', backgroundColor:'transparent', spanGaps:true, stepped:true },
+        { label: LANG==='fr'?'Cotation (€/tonne)':'Notering (€/ton)', data:qData, borderWidth:3, pointRadius:3, borderColor:'#748cab', backgroundColor:'transparent', spanGaps:true }
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
+        scales:{
+          x:{ type:'category', ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:22 }},
+          y:{ min:yMin, max:yMax, ticks:{ stepSize:step, callback:v=>`${v} €` } }
+        },
+        plugins:{ legend:{ position:'bottom' } }
+      },
+      plugins:[shadePrimeur]
+    });
+  }
+
+  function renderTable(rows){
+    const tb=document.getElementById('tbody'); tb.innerHTML='';
+    rows.forEach(r=>{
+      const tr=document.createElement('tr');
+      tr.className="border-b border-slate-100";
+      tr.innerHTML=`<td class="py-1.5 pr-2">${r.week_label}</td>
+        <td class="py-1.5 pr-2">${formatBE(r.date)}</td>
+        <td class="py-1.5 pr-2">${euro(toNum(r[contractKey]))}</td>
+        <td class="py-1.5 pr-2">${euro(toNum(r.notering))}</td>
+        <td class="py-1.5">${r.marktstemming||'–'}</td>`;
+      tb.appendChild(tr);
+    });
+  }
+
+  function toCSV(arr){
+    const head=['date','week_label','contract','notering','marktstemming'];
+    const lines=[head.join(';')];
+    arr.forEach(r=> lines.push([r.date, r.week_label, (toNum(r[contractKey])??''), (toNum(r.notering)??''), (r.marktstemming||'')].join(';')));
+    return lines.join('\n');
+  }
+  function download(name, blob){
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  }
+
+  async function fetchJSON(u){
+    const r=await fetch(u,{cache:'no-store'}); const t=await r.text();
+    if(!t) throw new Error('Lege respons'); if(t.trim().startsWith('<')) throw new Error('HTML i.p.v. JSON');
+    return JSON.parse(t);
+  }
+
+  // ====== init ======
+  (async function init(){
+    i18n();
+    document.getElementById('btn-nl').onclick=()=>{LANG='nl'; i18n(); renderKPI(); renderChart(); renderTable(seasonRows);};
+    document.getElementById('btn-fr').onclick=()=>{LANG='fr'; i18n(); renderKPI(); renderChart(); renderTable(seasonRows);};
+    document.getElementById('btn-print').onclick=()=>window.print();
+    document.getElementById('btn-copy').onclick=()=>{ const u=new URL(location.href); u.searchParams.set('lang',LANG); navigator.clipboard.writeText(u.toString()).then(()=>alert(T[LANG].link_copied)); };
+    document.getElementById('btn-csv').onclick=()=> download(`belgapom_notering_${new Date().toISOString().slice(0,10)}.csv`, new Blob([toCSV(seasonRows)],{type:'text/csv;charset=utf-8'}));
+
+    // toggles
+    const bC=document.getElementById('toggle-contract'), bQ=document.getElementById('toggle-quote');
+    setPressed(bC,true); setPressed(bQ,true);
+    bC.onclick=()=>{ showContract=!showContract; setPressed(bC,showContract); renderChart(); };
+    bQ.onclick=()=>{ showQuote=!showQuote; setPressed(bQ,showQuote); renderChart(); };
+
+    // data
+    const { rows, meta } = await fetchJSON(APP_SCRIPT_JSON_URL);
+    if (!Array.isArray(rows) || !rows.length) throw new Error('Geen rijen in feed');
+    document.getElementById('seasonLabel').textContent = meta?.season_label || '';
+
+    // contract key voorkeur: *_ff
+    const keys=Object.keys(rows[0]);
+    contractKey = ['contract_price_ff','contractprijs_ff','contract_ff'].find(k=>keys.includes(k))
+               || ['contract_price','contractprijs','contract'].find(k=>keys.includes(k))
+               || 'contract_price';
+
+    // gebruik seizoensdata uit feed (al gefilterd en gesorteerd)
+    rows.sort((a,b)=> (a.season_index??0)-(b.season_index??0));
+    seasonRows = rows;
+
+    // KPI: laatste record ≤ laatste vrijdag (Europe/Brussels)
+    const nowBE=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Brussels'}));
+    const day=nowBE.getDay(); const offs=(day>=5)?(day-5):(day+2);
+    const lastFri=new Date(nowBE); lastFri.setDate(nowBE.getDate()-offs);
+    const cutoff=lastFri.toISOString().slice(0,10);
+    latest = seasonRows[seasonRows.length-1];
+    for (let i=seasonRows.length-1;i>=0;i--) if (seasonRows[i].date<=cutoff){ latest=seasonRows[i]; break; }
+
+    renderKPI();
+    renderChart();
+    renderTable(seasonRows);
+
+  })().catch(err=>{
+    const ctx=document.getElementById('chart').getContext('2d');
+    ctx.font='14px system-ui'; ctx.fillStyle='#b00020';
+    ctx.fillText((LANG==='fr'?'Impossible de charger les données: ':'Kon data niet laden: ')+err.message,10,22);
+  });
+  </script>
+</body>
+</html>
