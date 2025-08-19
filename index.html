@@ -188,8 +188,8 @@
 
     // Primeur shading in year X+1
     const Y2 = seasonStartYear;
-    const pStart = thirdMonday(Y2, 6);  // July (6)
-    const pEndMon = thirdMonday(Y2, 8); // September (8)
+    const pStart = thirdMonday(Y1, 6);  // July (6)
+    const pEndMon = thirdMonday(Y1, 8); // September (8)
     const pEnd = new Date(pEndMon); pEnd.setDate(pEndMon.getDate()+6);
     const wStart = weekOfDate(pStart).week, wEnd = weekOfDate(pEnd).week;
 
