@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Belgapom – Notering / Cotation</title>
+  <title>Belgapom – Notering / Cotation / Quotation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
-    @media print{ .no-print{ display:none !important } }
+    @media print { .no-print { display:none !important } }
   </style>
 </head>
 <body class="bg-[#f0ebd8] text-[#0d1321]">
@@ -16,11 +16,12 @@
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <div>
         <h1 id="title" class="font-semibold text-lg">Belgapom – Notering</h1>
-        <p id="subtitle" class="text-sm text-slate-600">Contractprijzen en wekelijkse notering</p>
+        <p id="subtitle" class="text-sm text-slate-600">Contractprijzen en wekelijkse notering (vrije aardappelen)</p>
       </div>
       <div class="flex gap-2 no-print">
         <button id="btn-nl" class="px-3 py-1.5 rounded-lg border border-black/20 bg-white">NL</button>
         <button id="btn-fr" class="px-3 py-1.5 rounded-lg border border-black/20">FR</button>
+        <button id="btn-en" class="px-3 py-1.5 rounded-lg border border-black/20">EN</button>
         <button id="btn-print" class="px-3 py-1.5 rounded-lg border border-black/20">PDF</button>
       </div>
     </div>
@@ -28,7 +29,7 @@
 
   <!-- Main -->
   <main class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-6">
-    <!-- Left: KPIs + Chart + Info -->
+    <!-- Left -->
     <section class="md:col-span-2 space-y-4">
       <div class="bg-white rounded-2xl shadow p-4">
         <div class="flex items-center justify-between mb-2">
@@ -50,18 +51,14 @@
 
         <!-- Chart -->
         <div class="relative h-[420px]">
-          <canvas id="chart"></canvas>
+          <canvas id="chart" aria-label="Grafiek contractprijs & notering" role="img"></canvas>
         </div>
 
         <!-- Legende marktstemming -->
         <div class="mt-4 p-4 rounded-xl border border-black/10 bg-slate-50 text-sm">
           <h3 class="font-semibold mb-2" data-i18n="legend_title">Legende marktstemming</h3>
-          <ul class="list-disc pl-5 space-y-1">
-            <li data-i18n="legend_weak"><strong>Flauw</strong> — aanbod is groter dan de vraag</li>
-            <li data-i18n="legend_calm"><strong>Rustig</strong> — aanbod is groter dan of gelijk aan de vraag</li>
-            <li data-i18n="legend_stable"><strong>Stabiel</strong> — aanbod is gelijk aan de vraag (evenwicht)</li>
-            <li data-i18n="legend_support"><strong>Prijshoudend</strong> — aanbod is kleiner dan of gelijk aan de vraag</li>
-            <li data-i18n="legend_firm"><strong>Vast</strong> — aanbod is kleiner dan de vraag</li>
+          <ul class="list-disc pl-5 space-y-1" id="legend_list">
+            <!-- wordt dynamisch gevuld -->
           </ul>
         </div>
 
@@ -69,15 +66,13 @@
         <div class="mt-4 p-4 rounded-xl border border-black/10 bg-slate-50 text-sm leading-relaxed">
           <h3 class="font-semibold mb-2" data-i18n="rules_title">Reglementering & toelichting</h3>
           <div id="rules_body">
-            <p>De wekelijkse Belgapomnotering voor vroege aardappelen (juli–augustus) en voor Fontane & Challenger (bewaarseizoen) geeft een duidelijke indicatie van de evolutie van de vrije aardappelmarkt voor de verwerking van aardappelen tot diepvriesfriet.</p>
-            <p>Daarnaast maken telers, handel en verwerking in steeds grotere mate gebruik van teeltcontracten, die een grotere stabiliteit van de grondstofprijs beogen. De verhouding tussen beide instrumenten kan verschillen van bedrijf tot bedrijf. Beide componenten dienen in rekening gebracht te worden om de evolutie van de grondstofprijs te volgen.</p>
-            <p>Daarom toont de grafiek bij de Belgapomnotering ook de evolutie van de contractprijzen naast de wekelijkse notering.</p>
+            <!-- wordt dynamisch gevuld -->
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Right: Meta + Table -->
+    <!-- Right -->
     <aside class="space-y-4">
       <div class="bg-white rounded-2xl shadow p-4 text-sm text-slate-700">
         <p class="mb-2"><span data-i18n="last_update_label">Laatste update</span>: <span id="lastUpdate">–</span></p>
@@ -93,7 +88,7 @@
         <div class="max-h-[360px] overflow-auto mt-3">
           <table class="w-full text-sm">
             <thead class="text-left text-slate-600 sticky top-0 bg-white">
-              <tr><th>Week</th><th data-i18n="th_date">Datum (ma)</th><th data-i18n="th_contract">Contract</th><th data-i18n="th_quote">Notering</th><th data-i18n="th_sent">Stemming</th></tr>
+              <tr><th data-i18n="th_week">Week</th><th data-i18n="th_date">Datum (ma)</th><th data-i18n="th_contract">Contract</th><th data-i18n="th_quote">Notering</th><th data-i18n="th_sent">Stemming</th></tr>
             </thead>
             <tbody id="tbody"></tbody>
           </table>
@@ -103,100 +98,173 @@
   </main>
 
   <script>
-  const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbwW3CJVv92gfK6P05uLP69FRkvVrZRNz7l06fTtyH_1P7gvJiWdmVTyE1ySLiTL465zvw/exec?mode=json";
+  const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/library/d/1zHZj6U2X116wsMEX6rfO0ryKOUmOCs1YCtf5IohrmDmV8ekybVLdOfSI/12?mode=json";
 
-  // === I18N ===
-  let LANG=(new URLSearchParams(location.search).get('lang'))||'nl';
-  const T={ nl:{
-      title:"Belgapom – Notering", subtitle:"Contractprijzen en wekelijkse notering (vrije aardappelen)",
+  // ---------- I18N ----------
+  let LANG = (new URLSearchParams(location.search).get('lang')) || 'nl';
+  const T = {
+    nl: {
+      title:"Belgapom – Notering",
+      subtitle:"Contractprijzen en wekelijkse notering (vrije aardappelen)",
       kpi_quote:"Notering", kpi_contract:"Contractprijs", kpi_week:"Week", kpi_date:"Datum", kpi_sentiment:"Marktstemming",
       last_update_label:"Laatste update", source:"Bron: interne rapportering",
-      table_title:"Overzicht per week", th_date:"Datum (ma)", th_contract:"Contract", th_quote:"Notering", th_sent:"Stemming",
+      table_title:"Overzicht per week", th_week:"Week", th_date:"Datum (ma)", th_contract:"Contract", th_quote:"Notering", th_sent:"Stemming",
       legend_title:"Legende marktstemming",
-      legend_weak:"Flauw — aanbod is groter dan de vraag",
-      legend_calm:"Rustig — aanbod is groter dan of gelijk aan de vraag",
-      legend_stable:"Stabiel — aanbod is gelijk aan de vraag (evenwicht)",
-      legend_support:"Prijshoudend — aanbod is kleiner dan of gelijk aan de vraag",
-      legend_firm:"Vast — aanbod is kleiner dan de vraag",
-      rules_title:"Reglementering & toelichting"
+      legend_items:[
+        "Flauw — aanbod is groter dan de vraag",
+        "Rustig — aanbod is groter dan of gelijk aan de vraag",
+        "Stabiel — aanbod is gelijk aan de vraag (evenwicht)",
+        "Prijshoudend — aanbod is kleiner dan of gelijk aan de vraag",
+        "Vast — aanbod is kleiner dan de vraag"
+      ],
+      rules_title:"Reglementering & toelichting",
+      rules_body:[
+        "Vrije markt en contracten in de Belgische diepvriesfrietsector:",
+        "De wekelijkse Belgapomnotering voor vroege aardappelen (juli–augustus) en voor Fontane & Challenger (bewaarseizoen) geeft een duidelijke indicatie van de evolutie van de vrije aardappelmarkt voor de verwerking van aardappelen tot diepvriesfriet.",
+        "Daarnaast maken telers, handel en verwerking in steeds grotere mate gebruik van teeltcontracten, die een grotere stabiliteit van de grondstofprijs beogen. De verhouding tussen beide instrumenten kan verschillen van bedrijf tot bedrijf. Beide componenten dienen in rekening gebracht te worden om de evolutie van de grondstofprijs te volgen.",
+        "Daarom toont de grafiek bij de Belgapomnotering ook de evolutie van de contractprijzen naast de wekelijkse notering."
+      ]
     },
-    fr:{
-      title:"Belgapom – Cotation", subtitle:"Prix contractuels et cotation hebdomadaire",
+    fr: {
+      title:"Belgapom – Cotation",
+      subtitle:"Prix contractuels et cotation hebdomadaire (pommes de terre libres)",
       kpi_quote:"Cotation", kpi_contract:"Prix contractuel", kpi_week:"Semaine", kpi_date:"Date", kpi_sentiment:"Tendance du marché",
       last_update_label:"Dernière mise à jour", source:"Source : reporting interne",
-      table_title:"Aperçu par semaine", th_date:"Date (lun)", th_contract:"Contrat", th_quote:"Cotation", th_sent:"Ambiance",
+      table_title:"Aperçu par semaine", th_week:"Semaine", th_date:"Date (lun)", th_contract:"Contrat", th_quote:"Cotation", th_sent:"Ambiance",
       legend_title:"Légende – tendance du marché",
-      legend_weak:"Faible — l'offre est supérieure à la demande",
-      legend_calm:"Calme — l'offre est supérieure ou égale à la demande",
-      legend_stable:"Stable — l'offre est égale à la demande (équilibre)",
-      legend_support:"Soutenu — l'offre est inférieure ou égale à la demande",
-      legend_firm:"Ferme — l'offre est inférieure à la demande",
-      rules_title:"Réglementation & explications"
-    }};
-  function i18n(){ const d=T[LANG];
+      legend_items:[
+        "Faible — l'offre est supérieure à la demande",
+        "Calme — l'offre est supérieure ou égale à la demande",
+        "Stable — l'offre est égale à la demande (équilibre)",
+        "Soutenu — l'offre est inférieure ou égale à la demande",
+        "Ferme — l'offre est inférieure à la demande"
+      ],
+      rules_title:"Réglementation & explications",
+      rules_body:[
+        "Marché libre et contrats dans le secteur belge des frites surgelées :",
+        "La cotation hebdomadaire de Belgapom pour les pommes de terre précoces (juillet–août) et pour Fontane & Challenger (saison de conservation) indique clairement l’évolution du marché libre des pommes de terre destinées à la transformation en frites surgelées.",
+        "Parallèlement, producteurs, commerce et industrie recourent de plus en plus aux contrats de culture visant une plus grande stabilité du prix de la matière première. La part relative de ces instruments peut varier d’une entreprise à l’autre. Les deux composantes doivent être prises en compte pour suivre l’évolution du prix.",
+        "C’est pourquoi le graphique de la cotation Belgapom affiche également l’évolution des prix contractuels en plus de la cotation hebdomadaire."
+      ]
+    },
+    en: {
+      title:"Belgapom – Quotation",
+      subtitle:"Contract prices and weekly quotation (free potatoes)",
+      kpi_quote:"Quotation", kpi_contract:"Contract price", kpi_week:"Week", kpi_date:"Date", kpi_sentiment:"Market sentiment",
+      last_update_label:"Last update", source:"Source: internal reporting",
+      table_title:"Overview per week", th_week:"Week", th_date:"Date (Mon)", th_contract:"Contract", th_quote:"Quotation", th_sent:"Sentiment",
+      legend_title:"Legend – market sentiment",
+      legend_items:[
+        "Weak — supply exceeds demand",
+        "Calm — supply is greater than or equal to demand",
+        "Stable — supply equals demand (equilibrium)",
+        "Supported — supply is less than or equal to demand",
+        "Firm — supply is less than demand"
+      ],
+      rules_title:"Regulation & explanation",
+      rules_body:[
+        "Free market and contracts in the Belgian frozen‑fries sector:",
+        "The weekly Belgapom quotation for early potatoes (July–August) and for Fontane & Challenger (storage season) provides a clear indication of developments in the free potato market for processing into frozen fries.",
+        "In addition, growers, traders and processors increasingly use production contracts to ensure greater stability in raw‑material prices. The relative share of these instruments may vary from company to company. Both components should be taken into account to follow price evolution.",
+        "Therefore, alongside the weekly quotation, the graph also shows the evolution of contract prices."
+      ]
+    }
+  };
+
+  function applyI18N(){
+    const d=T[LANG];
     document.getElementById('title').textContent=d.title;
     document.getElementById('subtitle').textContent=d.subtitle;
-    document.querySelectorAll('[data-i18n]').forEach(el=>{const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k];});
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k];
+    });
+    // Legend list
+    const ul=document.getElementById('legend_list');
+    ul.innerHTML='';
+    d.legend_items.forEach(txt=>{
+      const li=document.createElement('li'); li.innerHTML = txt.replace(/^([^—-]+)/,'<strong>$1</strong>');
+      ul.appendChild(li);
+    });
+    // Rules body
+    const rb=document.getElementById('rules_body');
+    rb.innerHTML = d.rules_body.map(p=>`<p class="mb-2">${p}</p>`).join('');
   }
 
-  // === helpers ===
-  const euro=v=>(v==null||v==='')?'–':new Intl.NumberFormat(LANG==='fr'?'fr-BE':'nl-BE',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
-  const toNum=v=>{ if(v==null||v==='')return null; if(typeof v==='number')return isFinite(v)&&v>0?v:null; const s=String(v).replace(/[€\s]/g,'').replace(',','.'); const n=Number(s); return isFinite(n)&&n>0?n:null; };
+  // ---------- helpers ----------
+  const euro = v => (v==null||v==='') ? '–' : new Intl.NumberFormat(LANG==='fr'?'fr-BE':LANG==='en'?'en-BE':'nl-BE', {style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
+  const toNum = v => {
+    if (v==null||v==='') return null;
+    if (typeof v==='number') return isFinite(v)&&v>0 ? v : null;
+    const s=String(v).replace(/[€\s]/g,'').replace(',','.');
+    const n=Number(s); return isFinite(n)&&n>0 ? n : null;
+  };
   function isoWeekStart(year, week){ const simple=new Date(year,0,1+(week-1)*7); let dow=simple.getDay(); if(dow===0) dow=7; const monday=new Date(simple); monday.setDate(simple.getDate()-dow+1); return new Date(monday.getFullYear(),monday.getMonth(),monday.getDate()); }
-  function weekOfDate(d){ const date=new Date(d), target=new Date(date), dayNr=(date.getDay()+6)%7; target.setDate(target.getDate()-dayNr+3); const firstThu=new Date(target.getFullYear(),0,4), ft=(firstThu.getDay()+6)%7; firstThu.setDate(firstThu.getDate()-ft+3); return {week:1+Math.round((target-firstThu)/(7*864e5)), year:target.getFullYear()}; }
-  function formatBE(iso){ if(!iso) return '–'; const d=new Date(iso+'T00:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
+  function formatBE(iso){ if(!iso) return '–'; const d=new Date(iso+'T00:00:00'); const loc=LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE'; return d.toLocaleDateString(loc, {day:'2-digit',month:'2-digit',year:'numeric'}); }
 
-  // === state ===
+  // laatste vrijdag in Europe/Brussels
+  function lastFridayISO(){
+    const nowBE=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Brussels'}));
+    const dow=nowBE.getDay(); // 0=Sun..6=Sat; Friday=5
+    const daysSinceFriday = (dow>=5) ? (dow-5) : (dow+2); // Mon(1)->3.. Thu(4)->?  etc.
+    const lastFri=new Date(nowBE); lastFri.setDate(nowBE.getDate()-daysSinceFriday);
+    return lastFri.toISOString().slice(0,10);
+  }
+
+  // ---------- state ----------
   let chart, allRows=[], seasonRows=[], seasonStartYear, latestRow, contractKey='contract_price';
 
-  // === renderers ===
+  // ---------- renderers ----------
   function renderKPI(){
-    document.getElementById('kpi-quote').textContent=euro(toNum(latestRow.notering));
-    document.getElementById('kpi-contract').textContent=euro(toNum(latestRow[contractKey]));
-    document.getElementById('kpi-week').textContent=latestRow.week_num;
-    document.getElementById('kpi-date').textContent=formatBE(latestRow.date);
+    document.getElementById('kpi-quote').textContent = euro(toNum(latestRow.notering));
+    document.getElementById('kpi-contract').textContent = euro(toNum(latestRow[contractKey]));
+    document.getElementById('kpi-week').textContent = String(latestRow.week_num).padStart(2,'0');
+    document.getElementById('kpi-date').textContent = formatBE(latestRow.date);
     const b=document.getElementById('kpi-sentiment'); b.textContent=latestRow.marktstemming||'–';
     const s=(latestRow.marktstemming||'').toLowerCase();
     b.className='inline-block mt-1 px-3 py-1 rounded-full text-white text-xs ' + (
-      s.includes('vast')||s.includes('ferme') ? 'bg-green-600' :
-      s.includes('houd')||s.includes('soutenu') ? 'bg-yellow-600' :
+      s.includes('vast')||s.includes('ferme')||s.includes('firm') ? 'bg-green-600' :
+      s.includes('houd')||s.includes('soutenu')||s.includes('support') ? 'bg-yellow-600' :
       s.includes('stabiel')||s.includes('stable') ? 'bg-slate-600' :
-      s.includes('rustig')||s.includes('calme') ? 'bg-slate-500' :
-      s.includes('flauw')||s.includes('faible')||s.includes('neg') ? 'bg-red-600' : 'bg-slate-600'
+      s.includes('rustig')||s.includes('calme')||s.includes('calm') ? 'bg-slate-500' :
+      s.includes('flauw')||s.includes('faible')||s.includes('weak')||s.includes('neg') ? 'bg-red-600' : 'bg-slate-600'
     );
-    document.getElementById('lastUpdate').textContent=new Date().toLocaleString(LANG==='fr'?'fr-BE':'nl-BE',{timeZone:'Europe/Brussels'});
-    document.getElementById('year').textContent=new Date().getFullYear();
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleString(LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE',{timeZone:'Europe/Brussels'});
+    document.getElementById('year').textContent = new Date().getFullYear();
   }
 
   function renderChart(){
-    // Labels: W36..W52, W01..W36 (we tonen alleen het nummer)
-    const labels=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1)).map(n=>String(n).padStart(2,'0'));
-
-    // Data per week
-    const byWeekContract={}, byWeekQuote={};
-    seasonRows.forEach(r=>{ const w=r.week_num; if(toNum(r[contractKey])!=null) byWeekContract[w]=toNum(r[contractKey]); if(toNum(r.notering)!=null) byWeekQuote[w]=toNum(r.notering); });
+    // labels W36..W52, W01..W36 (numbers only)
     const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
-    const contract=order.map(w=>byWeekContract[w]??null);
-    const quote=order.map(w=>byWeekQuote[w]??null);
+    const labels=order.map(n=>String(n).padStart(2,'0'));
+
+    // build week-value maps
+    const byWeekC={}, byWeekQ={};
+    seasonRows.forEach(r=>{
+      const w=r.week_num;
+      const c=toNum(r[contractKey]); if(c!=null) byWeekC[w]=c;
+      const q=toNum(r.notering); if(q!=null) byWeekQ[w]=q;
+    });
+    const contract=order.map(w=>byWeekC[w]??null);
+    const quote=order.map(w=>byWeekQ[w]??null);
 
     const vals=[...contract,...quote].filter(v=>Number.isFinite(v)&&v>0);
     let yMin=0,yMax=100,step=10;
-    if (vals.length){
-      const lo=Math.min(...vals), hi=Math.max(...vals), span=hi-lo, pad=Math.max(10,Math.round(span*0.10));
+    if(vals.length){
+      const lo=Math.min(...vals), hi=Math.max(...vals), span=hi-lo, pad=Math.max(10,Math.round(span*0.1));
       const niceStep=sp=>{ const t=Math.max(1,sp/6), p=10**Math.floor(Math.log10(t)), b=t/p; return (b<=1?1:b<=2?2:b<=5?5:10)*p; };
       step=niceStep(span); yMin=Math.max(0,Math.floor((lo-pad)/step)*step); yMax=Math.ceil((hi+pad)/step)*step; if(yMax<=yMin) yMax=yMin+step;
     }
 
     const ctx=document.getElementById('chart').getContext('2d');
-    if (chart) chart.destroy();
+    if(chart) chart.destroy();
     chart=new Chart(ctx,{
       type:'line',
       data:{
         labels,
         datasets:[
-          { label: LANG==='fr'?'Prix contractuel (€/tonne)':'Contractprijs (€/ton)',
+          { label: LANG==='fr'?'Prix contractuel (€/tonne)':LANG==='en'?'Contract price (€/tonne)':'Contractprijs (€/ton)',
             data: contract, borderWidth:3, pointRadius:3, borderColor:'#1d2d44', backgroundColor:'transparent', stepped:true, spanGaps:false },
-          { label: LANG==='fr'?'Cotation (€/tonne)':'Notering (€/ton)',
+          { label: LANG==='fr'?'Cotation (€/tonne)':LANG==='en'?'Quotation (€/tonne)':'Notering (€/ton)',
             data: quote, borderWidth:3, pointRadius:3, borderColor:'#748cab', backgroundColor:'transparent', spanGaps:false }
         ]
       },
@@ -214,8 +282,8 @@
   function renderTable(){
     const tbody=document.getElementById('tbody'); tbody.innerHTML='';
     const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
-    const byWeekContract={}, byWeekQuote={}, byWeekSent={};
-    seasonRows.forEach(r=>{ const w=r.week_num; if(toNum(r.contract_price)!=null) byWeekContract[w]=toNum(r.contract_price); if(toNum(r.notering)!=null) byWeekQuote[w]=toNum(r.notering); if(r.marktstemming) byWeekSent[w]=r.marktstemming; });
+    const byWeekC={}, byWeekQ={}, byWeekS={};
+    seasonRows.forEach(r=>{ const w=r.week_num; const c=toNum(r.contract_price); if(c!=null) byWeekC[w]=c; const q=toNum(r.notering); if(q!=null) byWeekQ[w]=q; if(r.marktstemming) byWeekS[w]=r.marktstemming; });
 
     order.forEach(w=>{
       const year=(w>=36)?seasonStartYear:(seasonStartYear+1);
@@ -223,47 +291,55 @@
       const tr=document.createElement('tr'); tr.className="border-b border-slate-100";
       tr.innerHTML=`<td class="py-1.5 pr-2">W${String(w).padStart(2,'0')}</td>
         <td class="py-1.5 pr-2">${formatBE(monday.toISOString().slice(0,10))}</td>
-        <td class="py-1.5 pr-2">${euro(byWeekContract[w])}</td>
-        <td class="py-1.5 pr-2">${euro(byWeekQuote[w])}</td>
-        <td class="py-1.5">${byWeekSent[w] || '–'}</td>`;
+        <td class="py-1.5 pr-2">${euro(byWeekC[w])}</td>
+        <td class="py-1.5 pr-2">${euro(byWeekQ[w])}</td>
+        <td class="py-1.5">${byWeekS[w] || '–'}</td>`;
       tbody.appendChild(tr);
     });
 
-    document.getElementById('tableSeason').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
+    document.getElementById('tableSeason').textContent = `W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
   }
 
-  // === data flow ===
-  async function fetchJSON(u){ const r=await fetch(u,{cache:'no-store'}); const t=await r.text(); if(!t) throw new Error('Lege respons'); if(t.trim().startsWith('<')) throw new Error('HTML i.p.v. JSON'); return JSON.parse(t); }
+  // ---------- data flow ----------
+  async function fetchJSON(u){
+    const r=await fetch(u,{cache:'no-store'}); const t=await r.text();
+    if(!t) throw new Error('Lege respons'); if(t.trim().startsWith('<')) throw new Error('HTML i.p.v. JSON');
+    return JSON.parse(t);
+  }
 
   (async function init(){
-    i18n();
+    applyI18N();
     document.getElementById('btn-print').onclick=()=>window.print();
-    document.getElementById('btn-nl').onclick=()=>{LANG='nl'; i18n(); renderKPI(); renderChart(); renderTable();};
-    document.getElementById('btn-fr').onclick=()=>{LANG='fr'; i18n(); renderKPI(); renderChart(); renderTable();};
+    document.getElementById('btn-nl').onclick=()=>{LANG='nl'; applyI18N(); renderKPI(); renderChart(); renderTable();};
+    document.getElementById('btn-fr').onclick=()=>{LANG='fr'; applyI18N(); renderKPI(); renderChart(); renderTable();};
+    document.getElementById('btn-en').onclick=()=>{LANG='en'; applyI18N(); renderKPI(); renderChart(); renderTable();};
 
     const data=await fetchJSON(APP_SCRIPT_JSON_URL);
     allRows = Array.isArray(data.rows) ? data.rows : [];
-    if (!allRows.length) throw new Error('Geen rijen in feed');
+    if(!allRows.length) throw new Error('Geen rijen in feed');
 
-    // contract key
+    // kolomdetectie
     contractKey = ['contract_price','contractprijs','contract'].find(k=>k in allRows[0]) || 'contract_price';
 
-    // Bepaal seizoen startjaar: suggestie uit backend, anders: laatste rij (week>=36 ? dat jaar : jaar-1)
+    // Seizoensbepaling: gebruik suggestie uit backend, anders laatste rij (week>=36 ? dat jaar : jaar-1)
     const last = allRows[allRows.length-1];
-    seasonStartYear = (data.meta && data.meta.suggested_season_start_year) ? data.meta.suggested_season_start_year
-                        : (last.week_num>=36 ? last.week_year : last.week_year-1);
+    seasonStartYear = (data.meta && data.meta.suggested_season_start_year)
+                      ? data.meta.suggested_season_start_year
+                      : (last.week_num>=36 ? last.week_year : last.week_year-1);
 
-    // Filter op seizoen W36 (Y) .. W36 (Y+1)
+    // Filter W36 (Y) .. W36 (Y+1)
     const seasonStart=isoWeekStart(seasonStartYear,36);
     const seasonEnd=new Date(isoWeekStart(seasonStartYear+1,36)); seasonEnd.setDate(seasonEnd.getDate()+6);
     seasonRows = allRows.filter(r=>{ const d=new Date(r.date+'T00:00:00'); return d>=seasonStart && d<=seasonEnd; });
 
-    // Kies “laatste” record binnen seizoen (≤ vandaag, anders de laatste)
-    const todayIso=new Date().toISOString().slice(0,10);
+    // Laatste VRIJDAG (Europe/Brussels) ≤ vandaag
+    const cutoffIso = lastFridayISO();
     latestRow = seasonRows[seasonRows.length-1];
-    for(let i=seasonRows.length-1;i>=0;i--) if (seasonRows[i].date<=todayIso){ latestRow=seasonRows[i]; break; }
+    for (let i=seasonRows.length-1;i>=0;i--){
+      if (seasonRows[i].date <= cutoffIso) { latestRow = seasonRows[i]; break; }
+    }
 
-    document.getElementById('seasonLabel').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
+    document.getElementById('seasonLabel').textContent = `W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
 
     renderKPI();
     renderChart();
@@ -271,7 +347,7 @@
   })().catch(err=>{
     const ctx=document.getElementById('chart').getContext('2d');
     ctx.font='14px system-ui'; ctx.fillStyle='#b00020';
-    ctx.fillText('Kon data niet laden: '+err.message,10,22);
+    ctx.fillText((LANG==='fr'?'Impossible de charger les données: ':LANG==='en'?'Could not load data: ':'Kon data niet laden: ')+err.message,10,22);
   });
   </script>
 </body>
