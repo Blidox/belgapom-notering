@@ -8,6 +8,18 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     @media print { .no-print { display:none !important } }
+    /* minimal spinner */
+    .spinner {
+      width: 24px; height: 24px; border: 3px solid rgba(0,0,0,.15);
+      border-top-color: rgba(0,0,0,.6); border-radius: 50%;
+      animation: spin .9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg) } }
+    .loading-overlay {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,.8); backdrop-filter: blur(2px);
+    }
+    .loading-hidden { display: none !important; }
   </style>
 </head>
 <body class="bg-[#f0ebd8] text-[#0d1321]">
@@ -16,7 +28,7 @@
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <div>
         <h1 id="title" class="font-semibold text-lg">Belgapom – Notering</h1>
-        <p id="subtitle" class="text-sm text-slate-600">Contractprijzen en wekelijkse notering</p>
+        <p id="subtitle" class="text-sm text-slate-600">Contractprijzen en wekelijkse notering (vrije aardappelen)</p>
       </div>
       <div class="flex gap-2 no-print">
         <button id="btn-nl" class="px-3 py-1.5 rounded-lg border border-black/20 bg-white">NL</button>
@@ -57,9 +69,15 @@
           </div>
         </div>
 
-        <!-- Chart -->
-        <div class="relative h-[420px]">
+        <!-- Chart (met loader overlay) -->
+        <div class="relative h-[420px]" id="chartWrap" aria-live="polite">
           <canvas id="chart" aria-label="Grafiek contractprijs & notering" role="img"></canvas>
+          <div id="chartLoader" class="loading-overlay">
+            <div class="flex items-center gap-3 text-slate-700">
+              <div class="spinner" aria-hidden="true"></div>
+              <span id="chartLoaderText">Data laden…</span>
+            </div>
+          </div>
         </div>
 
         <!-- Legende marktstemming -->
@@ -89,7 +107,11 @@
           <strong data-i18n="table_title">Overzicht per week</strong>
           <div class="text-sm text-slate-600" id="tableSeason"></div>
         </div>
-        <div class="max-h-[360px] overflow-auto mt-3">
+        <div class="relative max-h-[360px] overflow-auto mt-3" id="tableWrap" aria-live="polite">
+          <!-- table loader overlay -->
+          <div id="tableLoader" class="loading-overlay"><div class="flex items-center gap-3 text-slate-700">
+            <div class="spinner" aria-hidden="true"></div><span id="tableLoaderText">Tabel laden…</span>
+          </div></div>
           <table class="w-full text-sm">
             <thead class="text-left text-slate-600 sticky top-0 bg-white">
               <tr>
@@ -114,8 +136,8 @@
   let LANG = (new URLSearchParams(location.search).get('lang')) || 'nl';
   const T = {
     nl: {
-      title:"Belgapom – Notering van Fontane & Challenger",
-      subtitle:"Contractprijzen en wekelijkse notering",
+      title:"Belgapom – Notering",
+      subtitle:"Contractprijzen en wekelijkse notering (vrije aardappelen)",
       kpi_quote:"Notering", kpi_week:"Week", kpi_date:"Datum", kpi_sentiment:"Marktstemming",
       last_update_label:"Laatste update", source:"Bron: interne rapportering",
       table_title:"Overzicht per week", th_week:"Week", th_date:"Datum (vr)", th_contract:"Contract", th_quote:"Notering", th_sent:"Stemming",
@@ -133,11 +155,12 @@
         "De wekelijkse Belgapomnotering voor vroege aardappelen (juli–augustus) en voor Fontane & Challenger (bewaarseizoen) geeft een duidelijke indicatie van de evolutie van de vrije aardappelmarkt voor de verwerking van aardappelen tot diepvriesfriet.",
         "Daarnaast maken telers, handel en verwerking in steeds grotere mate gebruik van teeltcontracten, die een grotere stabiliteit van de grondstofprijs beogen. De verhouding tussen beide instrumenten kan verschillen van bedrijf tot bedrijf. Beide componenten dienen in rekening gebracht te worden om de evolutie van de grondstofprijs te volgen.",
         "Daarom toont de grafiek bij de Belgapomnotering ook de evolutie van de contractprijzen naast de wekelijkse notering."
-      ]
+      ],
+      loading_chart:"Data laden…", loading_table:"Tabel laden…", loading_error:"Kon data niet laden: "
     },
     fr: {
-      title:"Belgapom – Cotation de fontane & Challenger",
-      subtitle:"Prix contractuels et cotation hebdomadaire",
+      title:"Belgapom – Cotation",
+      subtitle:"Prix contractuels et cotation hebdomadaire (pommes de terre libres)",
       kpi_quote:"Cotation", kpi_week:"Semaine", kpi_date:"Date", kpi_sentiment:"Tendance du marché",
       last_update_label:"Dernière mise à jour", source:"Source : reporting interne",
       table_title:"Aperçu par semaine", th_week:"Semaine", th_date:"Date (ven)", th_contract:"Contrat", th_quote:"Cotation", th_sent:"Ambiance",
@@ -155,11 +178,12 @@
         "La cotation hebdomadaire de Belgapom pour les pommes de terre précoces (juillet–août) et pour Fontane & Challenger (saison de conservation) indique clairement l’évolution du marché libre des pommes de terre destinées à la transformation en frites surgelées.",
         "Parallèlement, producteurs, commerce et industrie recourent de plus en plus aux contrats de culture visant une plus grande stabilité du prix de la matière première. La part relative de ces instruments peut varier d’une entreprise à l’autre. Les deux composantes doivent être prises en compte pour suivre l’évolution du prix.",
         "C’est pourquoi le graphique de la cotation Belgapom affiche également l’évolution des prix contractuels en plus de la cotation hebdomadaire."
-      ]
+      ],
+      loading_chart:"Chargement des données…", loading_table:"Chargement du tableau…", loading_error:"Impossible de charger les données : "
     },
     en: {
-      title:"Belgapom – Quotation of Fontane & Challenger",
-      subtitle:"Contract prices and weekly quotation",
+      title:"Belgapom – Quotation",
+      subtitle:"Contract prices and weekly quotation (free potatoes)",
       kpi_quote:"Quotation", kpi_week:"Week", kpi_date:"Date", kpi_sentiment:"Market sentiment",
       last_update_label:"Last update", source:"Source: internal reporting",
       table_title:"Overview per week", th_week:"Week", th_date:"Date (Fri)", th_contract:"Contract", th_quote:"Quotation", th_sent:"Sentiment",
@@ -177,7 +201,8 @@
         "The weekly Belgapom quotation for early potatoes (July–August) and for Fontane & Challenger (storage season) provides a clear indication of developments in the free potato market for processing into frozen fries.",
         "In addition, growers, traders and processors increasingly use production contracts to ensure greater stability in raw‑material prices. The relative share of these instruments may vary from company to company. Both components should be taken into account to follow price evolution.",
         "Therefore, alongside the weekly quotation, the graph also shows the evolution of contract prices."
-      ]
+      ],
+      loading_chart:"Loading data…", loading_table:"Loading table…", loading_error:"Could not load data: "
     }
   };
 
@@ -188,7 +213,7 @@
     document.querySelectorAll('[data-i18n]').forEach(el=>{
       const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k];
     });
-    // Legende
+    // Legend
     const ul=document.getElementById('legend_list'); ul.innerHTML='';
     d.legend_items.forEach(txt=>{
       const li=document.createElement('li');
@@ -198,6 +223,10 @@
     // Reglementering
     const rb=document.getElementById('rules_body');
     rb.innerHTML = d.rules_body.map(p=>`<p class="mb-2">${p}</p>`).join('');
+
+    // Loader teksten
+    document.getElementById('chartLoaderText').textContent = d.loading_chart;
+    document.getElementById('tableLoaderText').textContent = d.loading_table;
   }
 
   // ---------- helpers ----------
@@ -208,14 +237,12 @@
     const s=String(v).replace(/[€\s]/g,'').replace(',','.');
     const n=Number(s); return isFinite(n)&&n>0 ? n : null;
   };
-  // ISO-week Monday start
   function isoWeekStart(year, week){
     const simple=new Date(year,0,1+(week-1)*7);
     let dow=simple.getDay(); if(dow===0) dow=7;
     const monday=new Date(simple); monday.setDate(simple.getDate()-dow+1);
     return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate());
   }
-  // ISO-week Friday date (Monday + 4)
   function isoWeekFriday(year, week){
     const mon = isoWeekStart(year, week);
     const fri = new Date(mon); fri.setDate(mon.getDate()+4);
@@ -225,7 +252,6 @@
     const loc=LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE';
     return d.toLocaleDateString(loc,{day:'2-digit',month:'2-digit',year:'numeric'});
   }
-  // laatste vrijdag in Europe/Brussels
   function lastFridayISO(){
     const nowBE=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Brussels'}));
     const dow=nowBE.getDay(); // 0=Sun..6=Sat, Fri=5
@@ -239,7 +265,6 @@
 
   // ---------- renderers ----------
   function renderKPI(){
-    // toon steeds de VRIJDAG van die ISO-week
     const fri = isoWeekFriday(latestRow.week_year, latestRow.week_num);
     document.getElementById('kpi-quote').textContent = euro(toNum(latestRow.notering));
     document.getElementById('kpi-week').textContent = String(latestRow.week_num).padStart(2,'0');
@@ -259,11 +284,9 @@
   }
 
   function renderChart(){
-    // labels W36..W52, W01..W36 (numbers only)
     const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
     const labels=order.map(n=>String(n).padStart(2,'0'));
 
-    // build values
     const byWeekC={}, byWeekQ={};
     seasonRows.forEach(r=>{
       const w=r.week_num;
@@ -313,7 +336,7 @@
 
     order.forEach(w=>{
       const year=(w>=36)?seasonStartYear:(seasonStartYear+1);
-      const fri=isoWeekFriday(year,w); // vrijdag per week
+      const fri=isoWeekFriday(year,w);
       const tr=document.createElement('tr'); tr.className="border-b border-slate-100";
       tr.innerHTML=`<td class="py-1.5 pr-2">W${String(w).padStart(2,'0')}</td>
         <td class="py-1.5 pr-2">${formatDateObj(fri)}</td>
@@ -326,7 +349,16 @@
     document.getElementById('tableSeason').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
   }
 
-  // ---------- data flow ----------
+  // ---------- data flow + loaders ----------
+  function showLoaders(){
+    document.getElementById('chartLoader').classList.remove('loading-hidden');
+    document.getElementById('tableLoader').classList.remove('loading-hidden');
+  }
+  function hideLoaders(){
+    document.getElementById('chartLoader').classList.add('loading-hidden');
+    document.getElementById('tableLoader').classList.add('loading-hidden');
+  }
+
   async function fetchJSON(u){
     const r=await fetch(u,{cache:'no-store'}); const t=await r.text();
     if(!t) throw new Error('Lege respons'); if(t.trim().startsWith('<')) throw new Error('HTML i.p.v. JSON');
@@ -340,9 +372,12 @@
     document.getElementById('btn-fr').onclick=()=>{LANG='fr'; applyI18N(); renderKPI(); renderChart(); renderTable();};
     document.getElementById('btn-en').onclick=()=>{LANG='en'; applyI18N(); renderKPI(); renderChart(); renderTable();};
 
+    showLoaders(); // ← toon loaders bij start
+
     const data=await fetchJSON(APP_SCRIPT_JSON_URL);
-    allRows = Array.isArray(data.rows) ? data.rows : [];
-    if(!allRows.length) throw new Error('Geen rijen in feed');
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    if(!rows.length) throw new Error('Geen rijen in feed');
+    allRows = rows;
 
     // kolomdetectie
     contractKey = ['contract_price','contractprijs','contract'].find(k=>k in allRows[0]) || 'contract_price';
@@ -369,10 +404,13 @@
     renderKPI();
     renderChart();
     renderTable();
+
+    hideLoaders(); // ← verberg loaders als alles klaar is
   })().catch(err=>{
-    const ctx=document.getElementById('chart').getContext('2d');
-    ctx.font='14px system-ui'; ctx.fillStyle='#b00020';
-    ctx.fillText((LANG==='fr'?'Impossible de charger les données: ':LANG==='en'?'Could not load data: ':'Kon data niet laden: ')+err.message,10,22);
+    const d=T[LANG];
+    document.getElementById('chartLoaderText').textContent = (d?.loading_error || 'Kon data niet laden: ') + err.message;
+    document.getElementById('tableLoaderText').textContent = (d?.loading_error || 'Kon data niet laden: ') + err.message;
+    // laat de overlays zichtbaar staan maar verander tekst → zo ziet de gebruiker meteen wat er mis is
   });
   </script>
 </body>
