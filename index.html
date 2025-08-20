@@ -7,11 +7,11 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
-    :root{ --primeur: rgba(255,206,86,.22) }
     @media print{ .no-print{ display:none !important } }
   </style>
 </head>
 <body class="bg-[#f0ebd8] text-[#0d1321]">
+  <!-- Header -->
   <header class="sticky top-0 z-10 bg-white/85 backdrop-blur border-b border-black/10">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <div>
@@ -26,7 +26,9 @@
     </div>
   </header>
 
+  <!-- Main -->
   <main class="max-w-6xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-6">
+    <!-- Left: KPIs + Chart + Info -->
     <section class="md:col-span-2 space-y-4">
       <div class="bg-white rounded-2xl shadow p-4">
         <div class="flex items-center justify-between mb-2">
@@ -34,6 +36,7 @@
           <div id="seasonLabel" class="text-sm text-slate-600"></div>
         </div>
 
+        <!-- KPIs -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
           <div><div class="text-slate-500" data-i18n="kpi_quote">Notering</div><div id="kpi-quote" class="text-xl font-semibold">–</div></div>
           <div><div class="text-slate-500" data-i18n="kpi_contract">Contractprijs</div><div id="kpi-contract" class="text-xl font-semibold">–</div></div>
@@ -45,6 +48,7 @@
           </div>
         </div>
 
+        <!-- Chart -->
         <div class="relative h-[420px]">
           <canvas id="chart"></canvas>
         </div>
@@ -73,6 +77,7 @@
       </div>
     </section>
 
+    <!-- Right: Meta + Table -->
     <aside class="space-y-4">
       <div class="bg-white rounded-2xl shadow p-4 text-sm text-slate-700">
         <p class="mb-2"><span data-i18n="last_update_label">Laatste update</span>: <span id="lastUpdate">–</span></p>
@@ -93,13 +98,12 @@
             <tbody id="tbody"></tbody>
           </table>
         </div>
-        <p class="mt-2 text-xs text-slate-500">Primeurperiode (lichtgeel): 3e week van juli t/m 3e week van september (jaar X+1).</p>
       </div>
     </aside>
   </main>
 
   <script>
-  const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbwW3CJVv92gfK6P05uLP69FRkvVrZRNz7l06fTtyH_1P7gvJiWdmVTyE1ySLiTL465zvw/exec?mode=json";
+  const APP_SCRIPT_JSON_URL = "PASTE_YOUR_WEBAPP_URL_HERE?mode=json";
 
   // === I18N ===
   let LANG=(new URLSearchParams(location.search).get('lang'))||'nl';
@@ -142,9 +146,6 @@
   function weekOfDate(d){ const date=new Date(d), target=new Date(date), dayNr=(date.getDay()+6)%7; target.setDate(target.getDate()-dayNr+3); const firstThu=new Date(target.getFullYear(),0,4), ft=(firstThu.getDay()+6)%7; firstThu.setDate(firstThu.getDate()-ft+3); return {week:1+Math.round((target-firstThu)/(7*864e5)), year:target.getFullYear()}; }
   function formatBE(iso){ if(!iso) return '–'; const d=new Date(iso+'T00:00:00'); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
 
-  // primeur: 3rd Monday of July -> 3rd Monday of September (year X+1)
-  function thirdMonday(year, month){ const first=new Date(year,month,1); const firstMon=new Date(first); firstMon.setDate(first.getDate()+((8-(first.getDay()||7))%7)); const third=new Date(firstMon); third.setDate(firstMon.getDate()+14); return third; }
-
   // === state ===
   let chart, allRows=[], seasonRows=[], seasonStartYear, latestRow, contractKey='contract_price';
 
@@ -168,51 +169,30 @@
   }
 
   function renderChart(){
-    // Build season labels: W36..W52, W01..W36 (numbers only)
-    const labels=[...Array(17)].map((_,i)=>36+i); // 36..52
-    for(let w=1; w<=36; w++) labels.push(w);
+    // Labels: W36..W52, W01..W36 (we tonen alleen het nummer)
+    const labels=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1)).map(n=>String(n).padStart(2,'0'));
 
-    // Map values by week number within the season
-    const weekContract={}, weekQuote={};
-    seasonRows.forEach(r=>{ const w=r.week_num; if(toNum(r[contractKey])!=null) weekContract[w]=toNum(r[contractKey]); if(toNum(r.notering)!=null) weekQuote[w]=toNum(r.notering); });
-    const contract = labels.map(w=> weekContract[w] ?? null);
-    const quote    = labels.map(w=> weekQuote[w] ?? null);
+    // Data per week
+    const byWeekContract={}, byWeekQuote={};
+    seasonRows.forEach(r=>{ const w=r.week_num; if(toNum(r[contractKey])!=null) byWeekContract[w]=toNum(r[contractKey]); if(toNum(r.notering)!=null) byWeekQuote[w]=toNum(r.notering); });
+    const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
+    const contract=order.map(w=>byWeekContract[w]??null);
+    const quote=order.map(w=>byWeekQuote[w]??null);
 
     const vals=[...contract,...quote].filter(v=>Number.isFinite(v)&&v>0);
     let yMin=0,yMax=100,step=10;
     if (vals.length){
       const lo=Math.min(...vals), hi=Math.max(...vals), span=hi-lo, pad=Math.max(10,Math.round(span*0.10));
-      const niceStep = sp=>{ const t=Math.max(1,sp/6), p=10**Math.floor(Math.log10(t)), b=t/p; return (b<=1?1:b<=2?2:b<=5?5:10)*p; };
+      const niceStep=sp=>{ const t=Math.max(1,sp/6), p=10**Math.floor(Math.log10(t)), b=t/p; return (b<=1?1:b<=2?2:b<=5?5:10)*p; };
       step=niceStep(span); yMin=Math.max(0,Math.floor((lo-pad)/step)*step); yMax=Math.ceil((hi+pad)/step)*step; if(yMax<=yMin) yMax=yMin+step;
     }
-
-    // Primeur shading in year X+1
-    const Y2 = seasonStartYear;
-    const pStart = thirdMonday(Y2, 6);  // July (6)
-    const pEndMon = thirdMonday(Y2, 8); // September (8)
-    const pEnd = new Date(pEndMon); pEnd.setDate(pEndMon.getDate()+6);
-    const wStart = weekOfDate(pStart).week, wEnd = weekOfDate(pEnd).week;
-
-    // Convert week numbers to label indices (36..52 => 0..16, 1..36 => 17..53)
-    const wToIndex=w=> (w>=36? (w-36) : (17 + (w-1)));
-    const bands=[{from:wToIndex(wStart), to:wToIndex(wEnd)}];
-
-    const shadePrimeur = {
-      id:'shadePrimeur',
-      beforeDatasetsDraw(c,args){
-        const {ctx, chartArea, scales:{x}}=c; if(!chartArea) return;
-        const {top,bottom}=chartArea; ctx.save(); ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--primeur')||'rgba(255,206,86,.22)';
-        bands.forEach(b=>{ const x0=x.getPixelForValue(b.from); const x1=x.getPixelForValue(b.to); ctx.fillRect(x0, top, x1-x0, bottom-top); });
-        ctx.restore();
-      }
-    };
 
     const ctx=document.getElementById('chart').getContext('2d');
     if (chart) chart.destroy();
     chart=new Chart(ctx,{
       type:'line',
       data:{
-        labels: labels.map(n=> String(n).padStart(2,'0')), // show only the number
+        labels,
         datasets:[
           { label: LANG==='fr'?'Prix contractuel (€/tonne)':'Contractprijs (€/ton)',
             data: contract, borderWidth:3, pointRadius:3, borderColor:'#1d2d44', backgroundColor:'transparent', stepped:true, spanGaps:false },
@@ -223,31 +203,24 @@
       options:{
         responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
         scales:{
-          x:{ type:'category', ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:24 } }, // keep it readable
+          x:{ type:'category', ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:24 }},
           y:{ min:yMin, max:yMax, ticks:{ stepSize:step, callback:v=>`${v} €` } }
         },
         plugins:{ legend:{ position:'bottom' } }
-      },
-      plugins:[shadePrimeur]
+      }
     });
   }
 
   function renderTable(){
     const tbody=document.getElementById('tbody'); tbody.innerHTML='';
-    // Build week dictionaries for quick lookup
+    const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
     const byWeekContract={}, byWeekQuote={}, byWeekSent={};
     seasonRows.forEach(r=>{ const w=r.week_num; if(toNum(r.contract_price)!=null) byWeekContract[w]=toNum(r.contract_price); if(toNum(r.notering)!=null) byWeekQuote[w]=toNum(r.notering); if(r.marktstemming) byWeekSent[w]=r.marktstemming; });
 
-    // Order: 36..52, 1..36
-    const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
     order.forEach(w=>{
-      const year = (w>=36)? seasonStartYear : (seasonStartYear+1);
-      const monday=isoWeekStart(year, w);
+      const year=(w>=36)?seasonStartYear:(seasonStartYear+1);
+      const monday=isoWeekStart(year,w);
       const tr=document.createElement('tr'); tr.className="border-b border-slate-100";
-      // primeur highlight
-      const Y2=seasonStartYear, pS=thirdMonday(Y2,6), pE=thirdMonday(Y2,8); const pEw=new Date(pE); pEw.setDate(pE.getDate()+6);
-      if (monday>=pS && monday<=pEw) tr.style.background='rgba(255,206,86,.12)';
-
       tr.innerHTML=`<td class="py-1.5 pr-2">W${String(w).padStart(2,'0')}</td>
         <td class="py-1.5 pr-2">${formatBE(monday.toISOString().slice(0,10))}</td>
         <td class="py-1.5 pr-2">${euro(byWeekContract[w])}</td>
@@ -256,7 +229,7 @@
       tbody.appendChild(tr);
     });
 
-    document.getElementById('tableSeason').textContent = `W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
+    document.getElementById('tableSeason').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
   }
 
   // === data flow ===
@@ -275,26 +248,22 @@
     // contract key
     contractKey = ['contract_price','contractprijs','contract'].find(k=>k in allRows[0]) || 'contract_price';
 
-    // Determine season start year:
-    // Use Apps Script suggestion if present; otherwise: latest row's year if week>=36 else year-1
+    // Bepaal seizoen startjaar: suggestie uit backend, anders: laatste rij (week>=36 ? dat jaar : jaar-1)
     const last = allRows[allRows.length-1];
     seasonStartYear = (data.meta && data.meta.suggested_season_start_year) ? data.meta.suggested_season_start_year
                         : (last.week_num>=36 ? last.week_year : last.week_year-1);
 
-    // Filter rows to season window W36 (Y) .. W36 (Y+1)
-    const seasonStart = isoWeekStart(seasonStartYear, 36);
-    const seasonEnd = new Date(isoWeekStart(seasonStartYear+1, 36)); seasonEnd.setDate(seasonEnd.getDate()+6);
-    seasonRows = allRows.filter(r => {
-      const d=new Date(r.date+'T00:00:00'); return d>=seasonStart && d<=seasonEnd;
-    });
+    // Filter op seizoen W36 (Y) .. W36 (Y+1)
+    const seasonStart=isoWeekStart(seasonStartYear,36);
+    const seasonEnd=new Date(isoWeekStart(seasonStartYear+1,36)); seasonEnd.setDate(seasonEnd.getDate()+6);
+    seasonRows = allRows.filter(r=>{ const d=new Date(r.date+'T00:00:00'); return d>=seasonStart && d<=seasonEnd; });
 
-    // Latest row within the season (closest to today, or very last if future)
-    const todayIso = new Date().toISOString().slice(0,10);
+    // Kies “laatste” record binnen seizoen (≤ vandaag, anders de laatste)
+    const todayIso=new Date().toISOString().slice(0,10);
     latestRow = seasonRows[seasonRows.length-1];
-    for (let i=seasonRows.length-1;i>=0;i--) if (seasonRows[i].date <= todayIso){ latestRow = seasonRows[i]; break; }
+    for(let i=seasonRows.length-1;i>=0;i--) if (seasonRows[i].date<=todayIso){ latestRow=seasonRows[i]; break; }
 
-    // Top labels
-    document.getElementById('seasonLabel').textContent = `W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
+    document.getElementById('seasonLabel').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
 
     renderKPI();
     renderChart();
