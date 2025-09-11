@@ -4,38 +4,37 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#f0ebd8">
+  <meta name="theme-color" content="#FFCA00">
   <title>Belgapom – Notering / Cotation / Quotation</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
-    /* Print */
+    :root{ --brand:#FFCA00; }
     @media print { .no-print { display:none !important } header.sticky{position:static} }
-    /* Small helpers */
     .spinner{ width:24px;height:24px;border:3px solid rgba(0,0,0,.15);border-top-color:rgba(0,0,0,.6);border-radius:50%;animation:spin .9s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg)}}
     .loading-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.8);backdrop-filter:blur(2px)}
     .loading-hidden{display:none!important}
-    /* Horizontal scroll hint for mobile tables */
+    /* Table mobile scroll cue */
     .scroll-shadow{position:relative}
     .scroll-shadow::after{content:"";position:absolute;top:0;right:0;width:28px;height:100%;pointer-events:none;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,1));}
     .scroll-shadow.scrolled::after{opacity:0;}
   </style>
 </head>
-<body class="bg-[#f0ebd8] text-[#0d1321] selection:bg-[#1d2d44]/10">
+<body class="bg-[#f0ebd8] text-[#0d1321] selection:bg-[color:var(--brand)]/20">
   <!-- Header -->
   <header class="sticky top-0 z-10 bg-white/85 backdrop-blur border-b border-black/10">
     <div class="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3">
-      <div class="min-w-0">
+      <div class="min-w-0 flex items-center gap-2">
+        <!-- Logo placeholder; vervang src door je echte logo -->
+        <img id="logo" src="Belgapom-logo.svg" alt="Belgapom" class="h-7 w-auto hidden sm:block" onerror="this.style.display='none'">
         <h1 id="title" class="font-semibold text-base sm:text-lg truncate">Belgapom – Notering</h1>
-        <p id="subtitle" class="text-xs sm:text-sm text-slate-600 truncate">Contractprijzen en wekelijkse notering (vrije aardappelen)</p>
       </div>
-      <!-- Segmented language control + print -->
       <div class="no-print flex items-center gap-2">
         <div class="inline-flex rounded-xl border border-black/15 overflow-hidden text-sm">
-          <button id="btn-nl" class="px-2.5 sm:px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1d2d44]" data-lang="nl">NL</button>
-          <button id="btn-fr" class="px-2.5 sm:px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1d2d44]" data-lang="fr">FR</button>
-          <button id="btn-en" class="px-2.5 sm:px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1d2d44]" data-lang="en">EN</button>
+          <button id="btn-nl" class="px-2.5 sm:px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand)]" data-lang="nl">NL</button>
+          <button id="btn-fr" class="px-2.5 sm:px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand)]" data-lang="fr">FR</button>
+          <button id="btn-en" class="px-2.5 sm:px-3 py-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand)]" data-lang="en">EN</button>
         </div>
         <button id="btn-print" class="hidden sm:inline-flex px-3 py-1.5 rounded-xl border border-black/20 bg-white text-sm">PDF</button>
       </div>
@@ -48,8 +47,35 @@
     <section class="md:col-span-2 space-y-4">
       <div class="bg-white rounded-2xl shadow p-3 sm:p-4">
         <div class="flex items-center justify-between mb-2 gap-2">
-          <h2 class="text-base sm:text-lg font-semibold">Historiek</h2>
-          <div id="seasonLabel" class="text-xs sm:text-sm text-slate-600"></div>
+          <div class="min-w-0">
+            <h2 class="text-base sm:text-lg font-semibold">Historiek</h2>
+            <div id="seasonLabel" class="text-xs sm:text-sm text-slate-600"></div>
+          </div>
+          <!-- Chart controls -->
+          <div class="no-print flex items-center gap-2">
+            <label for="rangeSelect" class="sr-only">Bereik</label>
+            <select id="rangeSelect" class="text-xs sm:text-sm border rounded-lg px-2 py-1">
+              <option value="season">Seizoen</option>
+              <option value="last4w">Laatste 4 weken</option>
+              <option value="last8w">Laatste 8 weken</option>
+              <option value="last1m">Laatste maand</option>
+              <option value="last3m">Laatste 3 maanden</option>
+              <option value="custom">Aangepast…</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Custom range -->
+        <div id="customRange" class="no-print hidden mb-2 flex flex-wrap items-end gap-2 text-sm">
+          <div>
+            <label for="fromDate" class="block text-slate-600">Van</label>
+            <input id="fromDate" type="date" class="border rounded-lg px-2 py-1">
+          </div>
+          <div>
+            <label for="toDate" class="block text-slate-600">Tot</label>
+            <input id="toDate" type="date" class="border rounded-lg px-2 py-1">
+          </div>
+          <button id="applyCustom" class="px-3 py-1.5 rounded-lg bg-[color:var(--brand)] text-[#0d1321] font-medium">Toepassen</button>
         </div>
 
         <!-- KPIs -->
@@ -68,8 +94,22 @@
           </div>
           <div class="col-span-2 md:col-span-3">
             <div class="text-slate-500" data-i18n="kpi_sentiment">Marktstemming</div>
-            <span id="kpi-sentiment" class="inline-block mt-1 px-3 py-1 rounded-full text-white bg-slate-600 text-xs">–</span>
+            <span id="kpi-sentiment" class="inline-block mt-1 px-3 py-1 rounded-full text-[#0d1321] bg-[color:var(--brand)]/70 text-xs">–</span>
           </div>
+        </div>
+
+        <!-- Dataset toggles -->
+        <div class="no-print flex flex-wrap gap-3 items-center mb-2 text-sm">
+          <label class="inline-flex items-center gap-2 select-none">
+            <input id="toggleQuote" type="checkbox" class="accent-[color:var(--brand)]" checked>
+            <span>Notering</span>
+            <span class="inline-block w-3 h-3 rounded-full" style="background:var(--brand)"></span>
+          </label>
+          <label class="inline-flex items-center gap-2 select-none">
+            <input id="toggleContract" type="checkbox" class="accent-[color:var(--brand)]" checked>
+            <span>Contractprijs</span>
+            <span class="inline-block w-3 h-3 rounded-full bg-[#1d2d44]"></span>
+          </label>
         </div>
 
         <!-- Chart + loader -->
@@ -105,7 +145,17 @@
         <p class="text-xs">© <span id="year"></span> Belgapom</p>
       </div>
 
-      <div class="bg-white rounded-2xl shadow p-3 sm:p-4">
+      <!-- Mobile cards (md:hidden) -->
+      <div class="bg-white rounded-2xl shadow p-3 sm:p-4 md:hidden">
+        <div class="flex items-center justify-between gap-2">
+          <strong class="text-sm sm:text-base" data-i18n="cards_title">Overzicht per week</strong>
+          <div class="text-xs sm:text-sm text-slate-600" id="cardsSeason"></div>
+        </div>
+        <div id="cards" class="mt-3 space-y-2" aria-live="polite"></div>
+      </div>
+
+      <!-- Desktop table (hidden on mobile) -->
+      <div class="bg-white rounded-2xl shadow p-3 sm:p-4 hidden md:block">
         <div class="flex items-center justify-between gap-2">
           <strong class="text-sm sm:text-base" data-i18n="table_title">Overzicht per week</strong>
           <div class="text-xs sm:text-sm text-slate-600" id="tableSeason"></div>
@@ -114,7 +164,7 @@
           <div id="tableLoader" class="loading-overlay"><div class="flex items-center gap-3 text-slate-700">
             <div class="spinner" aria-hidden="true"></div><span id="tableLoaderText">Tabel laden…</span>
           </div></div>
-          <table class="w-full text-sm min-w-[520px]">
+          <table class="w-full text-sm min-w-[560px]">
             <thead class="text-left text-slate-600 sticky top-0 bg-white">
               <tr>
                 <th class="py-2 pr-2 w-16" data-i18n="th_week">Week</th>
@@ -133,7 +183,7 @@
   </main>
 
   <script>
-  const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbyjwrJvwDFCu7_nIt9SvKajtbO2R9NuRPvaNXXzVhhQt3lnZH5VlxBTT_QqxqNyPsI7Wg/exec?mode=json";
+  const APP_SCRIPT_JSON_URL = "https://script.google.com/macros/s/AKfycbyVCy44Eay8fvSQpUPJBtrFzLNLVmeU2-vvgXSlaKkkoVHi4lnBWAGdFz771oxNSiGZHA/exec?mode=json";
 
   // ---------- I18N ----------
   let LANG = (new URLSearchParams(location.search).get('lang')) || 'nl';
@@ -143,7 +193,8 @@
       subtitle:"Contractprijzen en wekelijkse notering (vrije aardappelen)",
       kpi_quote:"Notering", kpi_week:"Week", kpi_date:"Datum", kpi_sentiment:"Marktstemming",
       last_update_label:"Laatste update", source:"Bron: interne rapportering",
-      table_title:"Overzicht per week", th_week:"Week", th_date:"Datum (vr)", th_contract:"Contract", th_quote:"Notering", th_sent:"Stemming",
+      table_title:"Overzicht per week", cards_title:"Overzicht per week",
+      th_week:"Week", th_date:"Datum (vr)", th_contract:"Contract", th_quote:"Notering", th_sent:"Stemming",
       legend_title:"Legende marktstemming",
       legend_items:[
         "Flauw — aanbod is groter dan de vraag",
@@ -159,14 +210,17 @@
         "Daarnaast maken telers, handel en verwerking in steeds grotere mate gebruik van teeltcontracten, die een grotere stabiliteit van de grondstofprijs beogen. De verhouding tussen beide instrumenten kan verschillen van bedrijf tot bedrijf. Beide componenten dienen in rekening gebracht te worden om de evolutie van de grondstofprijs te volgen.",
         "Daarom toont de grafiek bij de Belgapomnotering ook de evolutie van de contractprijzen naast de wekelijkse notering."
       ],
-      loading_chart:"Data laden…", loading_table:"Tabel laden…", loading_error:"Kon data niet laden: "
+      loading_chart:"Data laden…", loading_table:"Tabel laden…", loading_error:"Kon data niet laden: ",
+      range_labels:{season:'Seizoen', last4w:'Laatste 4 weken', last8w:'Laatste 8 weken', last1m:'Laatste maand', last3m:'Laatste 3 maanden', custom:'Aangepast…'},
+      btn_apply:"Toepassen"
     },
     fr: {
       title:"Belgapom – Cotation",
       subtitle:"Prix contractuels et cotation hebdomadaire (pommes de terre libres)",
       kpi_quote:"Cotation", kpi_week:"Semaine", kpi_date:"Date", kpi_sentiment:"Tendance du marché",
       last_update_label:"Dernière mise à jour", source:"Source : reporting interne",
-      table_title:"Aperçu par semaine", th_week:"Semaine", th_date:"Date (ven)", th_contract:"Contrat", th_quote:"Cotation", th_sent:"Ambiance",
+      table_title:"Aperçu par semaine", cards_title:"Aperçu par semaine",
+      th_week:"Semaine", th_date:"Date (ven)", th_contract:"Contrat", th_quote:"Cotation", th_sent:"Ambiance",
       legend_title:"Légende – tendance du marché",
       legend_items:[
         "Faible — l'offre est supérieure à la demande",
@@ -182,14 +236,17 @@
         "Parallèlement, producteurs, commerce et industrie recourent de plus en plus aux contrats de culture visant une plus grande stabilité du prix de la matière première. La part relative de ces instruments peut varier d’une entreprise à l’autre. Les deux composantes doivent être prises en compte pour suivre l’évolution du prix.",
         "C’est pourquoi le graphique de la cotation Belgapom affiche également l’évolution des prix contractuels en plus de la cotation hebdomadaire."
       ],
-      loading_chart:"Chargement des données…", loading_table:"Chargement du tableau…", loading_error:"Impossible de charger les données : "
+      loading_chart:"Chargement des données…", loading_table:"Chargement du tableau…", loading_error:"Impossible de charger les données : ",
+      range_labels:{season:'Saison', last4w:'4 dernières semaines', last8w:'8 dernières semaines', last1m:'Dernier mois', last3m:'3 derniers mois', custom:'Personnalisé…'},
+      btn_apply:"Appliquer"
     },
     en: {
       title:"Belgapom – Quotation",
       subtitle:"Contract prices and weekly quotation (free potatoes)",
       kpi_quote:"Quotation", kpi_week:"Week", kpi_date:"Date", kpi_sentiment:"Market sentiment",
       last_update_label:"Last update", source:"Source: internal reporting",
-      table_title:"Overview per week", th_week:"Week", th_date:"Date (Fri)", th_contract:"Contract", th_quote:"Quotation", th_sent:"Sentiment",
+      table_title:"Overview per week", cards_title:"Overview per week",
+      th_week:"Week", th_date:"Date (Fri)", th_contract:"Contract", th_quote:"Quotation", th_sent:"Sentiment",
       legend_title:"Legend – market sentiment",
       legend_items:[
         "Weak — supply exceeds demand",
@@ -205,24 +262,23 @@
         "In addition, growers, traders and processors increasingly use production contracts to ensure greater stability in raw-material prices. The relative share of these instruments may vary from company to company. Both components should be taken into account to follow price evolution.",
         "Therefore, alongside the weekly quotation, the graph also shows the evolution of contract prices."
       ],
-      loading_chart:"Loading data…", loading_table:"Loading table…", loading_error:"Could not load data: "
+      loading_chart:"Loading data…", loading_table:"Loading table…", loading_error:"Could not load data: ",
+      range_labels:{season:'Season', last4w:'Last 4 weeks', last8w:'Last 8 weeks', last1m:'Last month', last3m:'Last 3 months', custom:'Custom…'},
+      btn_apply:"Apply"
     }
   };
 
   function applyI18N(){
     const d=T[LANG];
     document.getElementById('title').textContent=d.title;
-    document.getElementById('subtitle').textContent=d.subtitle;
+    // Range select labels
+    const rs=document.getElementById('rangeSelect');
+    rs.querySelectorAll('option').forEach(opt=>{ const k=opt.value; if(d.range_labels[k]) opt.textContent=d.range_labels[k]; });
+    document.getElementById('applyCustom').textContent = d.btn_apply;
     document.querySelectorAll('[data-i18n]').forEach(el=>{ const k=el.getAttribute('data-i18n'); if(d[k]) el.textContent=d[k]; });
-    // Legend
     const ul=document.getElementById('legend_list'); ul.innerHTML='';
     d.legend_items.forEach(txt=>{ const li=document.createElement('li'); li.innerHTML = txt.replace(/^([^—-]+)/,'<strong>$1</strong>'); ul.appendChild(li); });
-    // Rules
     const rb=document.getElementById('rules_body'); rb.innerHTML = d.rules_body.map(p=>`<p class="mb-2">${p}</p>`).join('');
-    // Loaders
-    document.getElementById('chartLoaderText').textContent = d.loading_chart;
-    document.getElementById('tableLoaderText').textContent = d.loading_table;
-    // html lang
     document.documentElement.lang = (LANG==='fr')?'fr':(LANG==='en'?'en':'nl');
   }
 
@@ -230,54 +286,114 @@
   const euro = v => (v==null||v==='') ? '–' : new Intl.NumberFormat(LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE', {style:'currency',currency:'EUR',maximumFractionDigits:0}).format(Number(v));
   const toNum = v => { if (v==null||v==='') return null; if (typeof v==='number') return isFinite(v)&&v>0 ? v : null; const s=String(v).replace(/[€\s]/g,'').replace(',','.'); const n=Number(s); return isFinite(n)&&n>0 ? n : null; };
   const prefersReduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
+  function fmtShort(iso){ if(!iso) return '–'; const d=new Date(iso+'T00:00:00'); const loc=LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE'; return d.toLocaleDateString(loc,{day:'2-digit',month:'2-digit'}); }
   function formatDateISO(iso){ if(!iso) return '–'; const d=new Date(iso+'T00:00:00'); const loc=LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE'; return d.toLocaleDateString(loc,{day:'2-digit',month:'2-digit',year:'numeric'}); }
 
   // ---------- state ----------
-  let chart, allRows=[], seasonRows=[], seasonStartYear, latestRow; // contract key is always contract_price from backend
+  let chart, allRows=[], seasonRows=[], seasonStartYear, latestRow, cutoffIso;
+  let showContract = true, showQuote = true;
 
   // ---------- loaders ----------
-  const showLoaders=()=>{ document.getElementById('chartLoader').classList.remove('loading-hidden'); document.getElementById('tableLoader').classList.remove('loading-hidden'); };
-  const hideLoaders=()=>{ document.getElementById('chartLoader').classList.add('loading-hidden'); document.getElementById('tableLoader').classList.add('loading-hidden'); };
+  const showLoaders=()=>{ document.getElementById('chartLoader').classList.remove('loading-hidden'); document.getElementById('tableLoader')?.classList.remove('loading-hidden'); };
+  const hideLoaders=()=>{ document.getElementById('chartLoader').classList.add('loading-hidden'); document.getElementById('tableLoader')?.classList.add('loading-hidden'); };
 
-  // ---------- renderers ----------
-  function sentimentPill(el, text){
+  // ---------- sentiment pill ----------
+  function sentimentPillClasses(text){
     const s=(text||'').toLowerCase();
-    el.textContent=text||'–';
-    el.className='inline-block mt-1 px-3 py-1 rounded-full text-white text-xs ' + (
-      s.includes('vast')||s.includes('ferme')||s.includes('firm') ? 'bg-green-600' :
-      s.includes('houd')||s.includes('soutenu')||s.includes('support') ? 'bg-yellow-600' :
-      s.includes('stabiel')||s.includes('stable') ? 'bg-slate-600' :
-      s.includes('rustig')||s.includes('calme')||s.includes('calm') ? 'bg-slate-500' :
-      s.includes('flauw')||s.includes('faible')||s.includes('weak')||s.includes('neg') ? 'bg-red-600' : 'bg-slate-600'
-    );
+    if (s.includes('vast')||s.includes('ferme')||s.includes('firm')) return 'bg-green-600 text-white';
+    if (s.includes('houd')||s.includes('soutenu')||s.includes('support')) return 'bg-yellow-600 text-white';
+    if (s.includes('stabiel')||s.includes('stable')) return 'bg-slate-600 text-white';
+    if (s.includes('rustig')||s.includes('calme')||s.includes('calm')) return 'bg-slate-500 text-white';
+    if (s.includes('flauw')||s.includes('faible')||s.includes('weak')||s.includes('neg')) return 'bg-red-600 text-white';
+    return 'bg-[color:var(--brand)] text-[#0d1321]';
   }
 
   function renderKPI(){
     document.getElementById('kpi-quote').textContent = euro(toNum(latestRow.notering));
     document.getElementById('kpi-week').textContent  = String(latestRow.week_num).padStart(2,'0');
     document.getElementById('kpi-date').textContent  = formatDateISO(latestRow.friday_date);
-    sentimentPill(document.getElementById('kpi-sentiment'), latestRow.marktstemming);
+    const b=document.getElementById('kpi-sentiment');
+    b.textContent=latestRow.marktstemming||'–';
+    b.className = 'inline-block mt-1 px-3 py-1 rounded-full text-xs ' + sentimentPillClasses(latestRow.marktstemming);
     document.getElementById('lastUpdate').textContent = new Date().toLocaleString(LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE',{timeZone:'Europe/Brussels'});
     document.getElementById('year').textContent = new Date().getFullYear();
   }
 
-  function renderChart(){
-    const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
-    const labels=order.map(n=>String(n).padStart(2,'0'));
+  // ---------- chart plugin: highlight current week ----------
+  const highlightPlugin = {
+    id:'highlightWeek',
+    beforeDatasetsDraw(chart, args, opts){
+      const idx = opts && typeof opts.index==='number' ? opts.index : null; if(idx==null) return;
+      const {ctx, chartArea:{top, bottom}, scales:{x}} = chart; if(!x) return;
+      const xC = x.getPixelForValue(idx);
+      const w = Math.max(8, (x.getPixelForValue(idx+0.5)-x.getPixelForValue(idx-0.5)) || 12);
+      ctx.save();
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--brand') || '#FFCA00';
+      ctx.globalAlpha = 0.10;
+      ctx.fillRect(xC - w/2, top, w, bottom-top);
+      ctx.restore();
+    },
+    afterDatasetsDraw(chart, args, opts){
+      const idx = opts && typeof opts.index==='number' ? opts.index : null; if(idx==null) return;
+      const dsIndex = (opts && typeof opts.datasetIndex==='number') ? opts.datasetIndex : 1; // notering dataset
+      const ds = chart.data.datasets[dsIndex]; if(!ds) return;
+      const yVal = ds.data[idx]; if(yVal==null) return;
+      const {ctx, scales:{x,y}} = chart; ctx.save();
+      const xC = x.getPixelForValue(idx); const yC = y.getPixelForValue(yVal);
+      ctx.beginPath(); ctx.arc(xC, yC, 6, 0, Math.PI*2);
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--brand') || '#FFCA00';
+      ctx.strokeStyle = '#0d1321'; ctx.lineWidth = 2; ctx.fill(); ctx.stroke(); ctx.restore();
+    }
+  };
+  Chart.register(highlightPlugin);
 
-    const byWeekC={}, byWeekQ={};
-    seasonRows.forEach(r=>{ const w=r.week_num; const c=toNum(r.contract_price); if(c!=null) byWeekC[w]=c; const q=toNum(r.notering); if(q!=null) byWeekQ[w]=q; });
-    const contract=order.map(w=>byWeekC[w]??null);
-    const quote=order.map(w=>byWeekQ[w]??null);
+  // ---------- chart renderer ----------
+  function computeVisibleRowsForRange(range, fromIso, toIso){
+    // Always work from seasonRows (chronological by date)
+    const arr = [...seasonRows].sort((a,b)=> a.friday_date.localeCompare(b.friday_date));
+    if(range==='season') return arr;
+    let from, to;
+    const lastIso = arr.length ? arr[arr.length-1].friday_date : null;
+    if(!lastIso) return arr;
+    const lastDate = new Date(lastIso+'T00:00:00');
+    if(range==='last4w') { from = new Date(lastDate); from.setDate(from.getDate()-28); }
+    else if(range==='last8w'){ from = new Date(lastDate); from.setDate(from.getDate()-56); }
+    else if(range==='last1m'){ from = new Date(lastDate); from.setMonth(from.getMonth()-1); }
+    else if(range==='last3m'){ from = new Date(lastDate); from.setMonth(from.getMonth()-3); }
+    else if(range==='custom'){
+      from = fromIso ? new Date(fromIso+'T00:00:00') : null;
+      to   = toIso   ? new Date(toIso+'T00:00:00')   : null;
+    }
+    return arr.filter(r=>{
+      const d = new Date(r.friday_date+'T00:00:00');
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  }
 
-    const vals=[...contract,...quote].filter(v=>Number.isFinite(v)&&v>0);
+  function rebuildChart(){
+    const range = document.getElementById('rangeSelect').value;
+    const fromIso = document.getElementById('fromDate').value || null;
+    const toIso   = document.getElementById('toDate').value || null;
+    const visRows = computeVisibleRowsForRange(range, fromIso, toIso);
+
+    const usingSeason = (range==='season');
+    const labels = usingSeason ? visRows.map(r=>String(r.week_num).padStart(2,'0')) : visRows.map(r=>fmtShort(r.friday_date));
+
+    const contract = visRows.map(r=>toNum(r.contract_price));
+    const quote    = visRows.map(r=>toNum(r.notering));
+
+    const vals=[]; if(showContract) vals.push(...contract.filter(v=>Number.isFinite(v))); if(showQuote) vals.push(...quote.filter(v=>Number.isFinite(v)));
     let yMin=0,yMax=100,step=10;
     if(vals.length){
       const lo=Math.min(...vals), hi=Math.max(...vals), span=hi-lo, pad=Math.max(10,Math.round(span*0.1));
       const niceStep=sp=>{ const t=Math.max(1,sp/6), p=10**Math.floor(Math.log10(t)), b=t/p; return (b<=1?1:b<=2?2:b<=5?5:10)*p; };
       step=niceStep(span); yMin=Math.max(0,Math.floor((lo-pad)/step)*step); yMax=Math.ceil((hi+pad)/step)*step; if(yMax<=yMin) yMax=yMin+step;
     }
+
+    const latestIdx = visRows.findIndex(r=>r.friday_date<=cutoffIso && r.friday_date===latestRow.friday_date);
+    const highlightIdx = latestIdx>=0 ? latestIdx : (visRows.length-1);
 
     const ctx=document.getElementById('chart').getContext('2d');
     if(chart) chart.destroy();
@@ -287,40 +403,54 @@
         labels,
         datasets:[
           { label: LANG==='fr'?"Prix contractuel (€/tonne)":LANG==='en'?"Contract price (€/tonne)":"Contractprijs (€/ton)",
-            data: contract, borderWidth:3, pointRadius: (window.matchMedia && window.matchMedia('(pointer:coarse)').matches)?4:3,
+            data: contract, hidden: !showContract,
+            borderWidth:3, pointRadius:(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches)?4:3,
             borderColor:'#1d2d44', backgroundColor:'transparent', stepped:true, spanGaps:false },
           { label: LANG==='fr'?"Cotation (€/tonne)":LANG==='en'?"Quotation (€/tonne)":"Notering (€/ton)",
-            data: quote, borderWidth:3, pointRadius: (window.matchMedia && window.matchMedia('(pointer:coarse)').matches)?4:3,
-            borderColor:'#748cab', backgroundColor:'transparent', spanGaps:false }
+            data: quote, hidden: !showQuote,
+            borderWidth:3.2, pointRadius:(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches)?5:4,
+            borderColor:getComputedStyle(document.documentElement).getPropertyValue('--brand')||'#FFCA00',
+            backgroundColor:'transparent', spanGaps:false }
         ]
       },
       options:{
         responsive:true, maintainAspectRatio:false,
-        animation: prefersReduced()?false: { duration: 400 },
+        animation: prefersReduced()?false:{ duration: 450 },
         interaction:{mode:'index', intersect:false},
         elements:{ line:{ tension:0 } },
         scales:{
-          x:{ type:'category', ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit:24 }},
-          y:{ min:yMin, max:yMax, ticks:{ stepSize:step, callback:v=>`${v} €` } }
+          x:{ type:'category', ticks:{ maxRotation:0, autoSkip:true, maxTicksLimit: usingSeason ? 24 : 12 }},
+          y:{ min:yMin, max:yMax, ticks:{ stepSize:step, callback:v=>`${v} €` }, grid:{ borderDash:[4,4] } }
         },
-        plugins:{ legend:{ position:'bottom' } }
+        plugins:{
+          legend:{ position:'bottom' },
+          tooltip:{ callbacks:{ label:(ctx)=>{
+            const v = ctx.parsed.y; const lbl = ctx.dataset.label||''; return `${lbl}: ${Number.isFinite(v)? euro(v):'–'}`; } }
+          },
+          highlightWeek:{ index: highlightIdx, datasetIndex: 1 }
+        }
       }
     });
   }
 
+  function setActiveLangButton(){
+    document.querySelectorAll('[data-lang]').forEach(btn=>{
+      const active = btn.getAttribute('data-lang')===LANG;
+      btn.setAttribute('aria-pressed', active? 'true':'false');
+      btn.classList.toggle('bg-[color:var(--brand)]', active);
+      btn.classList.toggle('text-[#0d1321]', active);
+      btn.classList.toggle('bg-white', !active);
+    });
+  }
+
+  // ---------- table & cards ----------
+  function sentimentBadge(text){ return `<span class="px-2 py-0.5 rounded-full text-xs ${sentimentPillClasses(text)}">${text||'–'}</span>`; }
+
   function renderTable(){
-    const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+    const tbody=document.getElementById('tbody'); if(!tbody) return; tbody.innerHTML='';
     const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
     const byWeekC={}, byWeekQ={}, byWeekS={}, byWeekFri={}, byWeekMismatch={};
-    seasonRows.forEach(r=>{
-      const w=r.week_num;
-      if (r.friday_date) byWeekFri[w]=r.friday_date;
-      const c=toNum(r.contract_price); if(c!=null) byWeekC[w]=c;
-      const q=toNum(r.notering); if(q!=null) byWeekQ[w]=q;
-      if (r.marktstemming) byWeekS[w]=r.marktstemming;
-      if (r.week_mismatch) byWeekMismatch[w]=true;
-    });
-
+    seasonRows.forEach(r=>{ const w=r.week_num; byWeekFri[w]=r.friday_date; byWeekC[w]=toNum(r.contract_price); byWeekQ[w]=toNum(r.notering); if(r.marktstemming) byWeekS[w]=r.marktstemming; if(r.week_mismatch) byWeekMismatch[w]=true; });
     let anyMismatch=false;
     order.forEach(w=>{
       const mismatch = !!byWeekMismatch[w]; if(mismatch) anyMismatch=true;
@@ -329,42 +459,76 @@
         <td class="py-1.5 pr-2">${formatDateISO(byWeekFri[w])}</td>
         <td class="py-1.5 pr-2">${euro(byWeekC[w])}</td>
         <td class="py-1.5 pr-2">${euro(byWeekQ[w])}</td>
-        <td class="py-1.5">${byWeekS[w] ? `<span class="px-2 py-0.5 rounded-full text-xs text-white ${ (byWeekS[w].toLowerCase().includes('vast')||byWeekS[w].toLowerCase().includes('ferme')||byWeekS[w].toLowerCase().includes('firm'))? 'bg-green-600' : (byWeekS[w].toLowerCase().includes('houd')||byWeekS[w].toLowerCase().includes('soutenu')||byWeekS[w].toLowerCase().includes('support'))? 'bg-yellow-600' : (byWeekS[w].toLowerCase().includes('stabiel')||byWeekS[w].toLowerCase().includes('stable'))? 'bg-slate-600' : (byWeekS[w].toLowerCase().includes('rustig')||byWeekS[w].toLowerCase().includes('calme')||byWeekS[w].toLowerCase().includes('calm'))? 'bg-slate-500' : (byWeekS[w].toLowerCase().includes('flauw')||byWeekS[w].toLowerCase().includes('faible')||byWeekS[w].toLowerCase().includes('weak')||byWeekS[w].toLowerCase().includes('neg'))? 'bg-red-600' : 'bg-slate-600' }">${byWeekS[w]}</span>` : '–'}</td>`;
+        <td class="py-1.5">${byWeekS[w]? sentimentBadge(byWeekS[w]) : '–'}</td>`;
       tbody.appendChild(tr);
     });
     document.getElementById('tableSeason').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
-    document.getElementById('mismatchHint').classList.toggle('hidden', !anyMismatch);
+    const hint=document.getElementById('mismatchHint'); if(hint) hint.classList.toggle('hidden', !anyMismatch);
+  }
+
+  function renderCards(){
+    const wrap=document.getElementById('cards'); if(!wrap) return; wrap.innerHTML='';
+    const order=[...Array(17)].map((_,i)=>36+i).concat([...Array(36)].map((_,i)=>i+1));
+    const byWeek={}; seasonRows.forEach(r=>{ byWeek[r.week_num]=r; });
+    order.forEach(w=>{
+      const r = byWeek[w];
+      const card=document.createElement('div');
+      card.className = 'rounded-xl border border-black/10 p-3 bg-white shadow-sm';
+      if(r){
+        card.innerHTML = `
+          <div class="flex items-baseline justify-between gap-3">
+            <div>
+              <div class="text-xs text-slate-500" data-i18n="th_week">Week</div>
+              <div class="text-lg font-semibold">W${String(r.week_num).padStart(2,'0')}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-slate-500" data-i18n="th_date">Datum (vr)</div>
+              <div class="text-sm font-medium">${formatDateISO(r.friday_date)}</div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-2">
+            <div>
+              <div class="text-xs text-slate-500" data-i18n="th_contract">Contract</div>
+              <div class="text-base font-medium">${euro(toNum(r.contract_price))}</div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-500" data-i18n="th_quote">Notering</div>
+              <div class="text-base font-semibold text-[#0d1321]">${euro(toNum(r.notering))}</div>
+            </div>
+          </div>
+          <div class="mt-2">${sentimentBadge(r.marktstemming)}</div>
+        `;
+        if(r.week_mismatch) card.classList.add('bg-amber-50/60');
+      } else {
+        card.innerHTML = `<div class="text-sm text-slate-600">Geen data voor W${String(w).padStart(2,'0')}</div>`;
+      }
+      wrap.appendChild(card);
+    });
+    document.getElementById('cardsSeason').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
   }
 
   // ---------- data flow ----------
-  async function fetchJSON(u){
-    const r=await fetch(u,{cache:'no-store'}); const t=await r.text();
-    if(!t) throw new Error('Lege respons'); if(t.trim().startsWith('<')) throw new Error('HTML i.p.v. JSON');
-    return JSON.parse(t);
-  }
-
-  function setActiveLangButton(){
-    document.querySelectorAll('[data-lang]').forEach(btn=>{
-      const active = btn.getAttribute('data-lang')===LANG;
-      btn.setAttribute('aria-pressed', active? 'true':'false');
-      btn.classList.toggle('bg-[#0d1321]', active);
-      btn.classList.toggle('text-white', active);
-      btn.classList.toggle('bg-white', !active);
-    });
-  }
+  async function fetchJSON(u){ const r=await fetch(u,{cache:'no-store'}); const t=await r.text(); if(!t) throw new Error('Lege respons'); if(t.trim().startsWith('<')) throw new Error('HTML i.p.v. JSON'); return JSON.parse(t); }
 
   (async function init(){
     applyI18N(); setActiveLangButton();
     document.getElementById('btn-print').onclick=()=>window.print();
-    document.getElementById('btn-nl').onclick=()=>{LANG='nl'; applyI18N(); setActiveLangButton(); renderKPI(); renderChart(); renderTable();};
-    document.getElementById('btn-fr').onclick=()=>{LANG='fr'; applyI18N(); setActiveLangButton(); renderKPI(); renderChart(); renderTable();};
-    document.getElementById('btn-en').onclick=()=>{LANG='en'; applyI18N(); setActiveLangButton(); renderKPI(); renderChart(); renderTable();};
+    document.getElementById('btn-nl').onclick=()=>{LANG='nl'; applyI18N(); setActiveLangButton(); renderKPI(); rebuildChart(); renderTable(); renderCards();};
+    document.getElementById('btn-fr').onclick=()=>{LANG='fr'; applyI18N(); setActiveLangButton(); renderKPI(); rebuildChart(); renderTable(); renderCards();};
+    document.getElementById('btn-en').onclick=()=>{LANG='en'; applyI18N(); setActiveLangButton(); renderKPI(); rebuildChart(); renderTable(); renderCards();};
 
-    // Shadow hint on table overflow (mobile)
-    const wrap=document.getElementById('tableWrap');
-    const onScroll=()=>{ wrap.classList.toggle('scrolled', wrap.scrollLeft>8 || wrap.scrollWidth<=wrap.clientWidth); };
-    wrap.addEventListener('scroll', onScroll, {passive:true});
-    const ro=new ResizeObserver(onScroll); ro.observe(wrap);
+    // Range controls
+    const rangeSelect = document.getElementById('rangeSelect');
+    const customBox   = document.getElementById('customRange');
+    rangeSelect.addEventListener('change',()=>{ customBox.classList.toggle('hidden', rangeSelect.value!=='custom'); rebuildChart(); });
+    document.getElementById('applyCustom').addEventListener('click', rebuildChart);
+
+    // Dataset toggles
+    document.getElementById('toggleContract').addEventListener('change', (e)=>{ showContract = e.target.checked; rebuildChart(); });
+    document.getElementById('toggleQuote').addEventListener('change', (e)=>{ showQuote = e.target.checked; rebuildChart(); });
+
+    // Table scroll cue
+    const wrap=document.getElementById('tableWrap'); if(wrap){ const onScroll=()=>{ wrap.classList.toggle('scrolled', wrap.scrollLeft>8 || wrap.scrollWidth<=wrap.clientWidth); }; wrap.addEventListener('scroll', onScroll, {passive:true}); const ro=new ResizeObserver(onScroll); ro.observe(wrap); }
 
     showLoaders();
 
@@ -384,28 +548,34 @@
     const endMon = isoWeekStart(seasonStartYear+1,36); const end = new Date(endMon); end.setDate(endMon.getDate()+6);
     seasonRows = allRows.filter(r=>{ const d=new Date((r.friday_date||r.date)+'T00:00:00'); return d>=start && d<=end; });
 
-    // Cutoff = laatste vrijdag in BE-tijd (van backend indien aanwezig)
-    const cutoffIso = (data.meta && data.meta.latest_cutoff_friday_iso) ? data.meta.latest_cutoff_friday_iso : (()=>{
+    // Cutoff en latestRow
+    cutoffIso = (data.meta && data.meta.latest_cutoff_friday_iso) ? data.meta.latest_cutoff_friday_iso : (()=>{
       const nowBE=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Brussels'}));
       const dow=nowBE.getDay(); const dsf=(dow>=5)?(dow-5):(dow+2); const lf=new Date(nowBE); lf.setDate(nowBE.getDate()-dsf);
       return lf.toISOString().slice(0,10);
     })();
-
-    // Laatste rij kiezen op basis van friday_date ≤ cutoff
     latestRow = seasonRows[seasonRows.length-1];
     for (let i=seasonRows.length-1;i>=0;i--){ const f = seasonRows[i].friday_date || seasonRows[i].date; if (f <= cutoffIso) { latestRow = seasonRows[i]; break; } }
 
+    // Initialize UI labels
     document.getElementById('seasonLabel').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
+    document.getElementById('tableSeason').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
+    document.getElementById('cardsSeason').textContent=`W36 ${seasonStartYear} – W36 ${seasonStartYear+1}`;
+
+    // Date inputs bounds for custom range
+    const minIso = seasonRows[0]?.friday_date; const maxIso = seasonRows[seasonRows.length-1]?.friday_date;
+    if(minIso && maxIso){ const from=document.getElementById('fromDate'); const to=document.getElementById('toDate'); from.min=minIso; from.max=maxIso; to.min=minIso; to.max=maxIso; to.value=maxIso; }
 
     renderKPI();
-    renderChart();
+    rebuildChart();
     renderTable();
+    renderCards();
 
     hideLoaders();
   })().catch(err=>{
     const d=T[LANG]||T.nl;
     document.getElementById('chartLoaderText').textContent = (d.loading_error||'Kon data niet laden: ')+err.message;
-    document.getElementById('tableLoaderText').textContent  = (d.loading_error||'Kon data niet laden: ')+err.message;
+    const tl=document.getElementById('tableLoaderText'); if(tl) tl.textContent  = (d.loading_error||'Kon data niet laden: ')+err.message;
   });
   </script>
 </body>
