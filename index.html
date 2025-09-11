@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#FFCA00">
   <title>Belgapom – Notering / Cotation / Quotation</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <style>
     :root{ --brand:#FFCA00; }
     @media print { .no-print { display:none !important } header.sticky{position:static} }
@@ -33,7 +33,7 @@
   <header class="sticky top-0 z-10 bg-white/85 backdrop-blur border-b border-black/10">
     <div class="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-3">
       <div class="min-w-0 flex items-center gap-2">
-        <img id="logo" src="Belgapom-logo.svg" alt="Belgapom" class="h-7 w-auto hidden sm:block" onerror="this.style.display='none'">
+        <img id="logo" src="logo.svg" alt="Belgapom" class="h-7 w-auto hidden sm:block" onerror="this.style.display='none'">
         <h1 id="title" class="font-semibold text-base sm:text-lg truncate">Belgapom – Notering</h1>
       </div>
       <div class="no-print flex items-center gap-2">
@@ -183,7 +183,7 @@
     document.getElementById('toggleContract').addEventListener('change', (e)=>{ showContract=e.target.checked; rebuildChart(); });
     document.getElementById('toggleQuote').addEventListener('change', (e)=>{ showQuote=e.target.checked; rebuildChart(); });
 
-    const wrap=document.getElementById('tableWrap'); if(wrap){ const onScroll=()=>{ wrap.classList.toggle('scrolled', wrap.scrollLeft>8 || wrap.scrollWidth<=wrap.clientWidth); }; wrap.addEventListener('scroll', onScroll, {passive:true}); const ro=new ResizeObserver(onScroll); ro.observe(wrap); }
+    const wrap=document.getElementById('tableWrap'); if(wrap){ const onScroll=()=>{ wrap.classList.toggle('scrolled', wrap.scrollLeft>8 || wrap.scrollWidth<=wrap.clientWidth); }; wrap.addEventListener('scroll', onScroll, {passive:true}); if (window.ResizeObserver) { const ro = new ResizeObserver(onScroll); ro.observe(wrap); } }
 
     // --- Load data with fallback & diagnostics ---
     try{
