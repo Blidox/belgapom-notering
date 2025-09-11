@@ -11,11 +11,11 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     :root{
-      /* Hoofdkleur (jouw input) */
+      /* Hoofdkleur (goudgeel) en secundaire kleuren */
       --brand-primary:#FFCA00;
-
-      /* Secundaire kleuren (mag je aanpassen indien gewenst) */
-      --brand-navy:#0d1321;
+      /* Hoofdkleur, neutraal donkergrijs als basis i.p.v. navy */
+      --brand-navy:#3f3f3f;
+      /* Secundaire accentkleur voor de quotatie-reeks */
       --brand-green:#2aa36b;
 
       /* UI kleurtjes */
@@ -75,25 +75,15 @@
             <div id="seasonLabel" class="text-xs md:text-sm" style="color:var(--muted)"></div>
           </div>
 
-          <!-- Controls -->
-          <div class="flex flex-col items-end gap-2 no-print w-full sm:w-auto">
-            <div class="flex flex-wrap gap-1 sm:gap-2 items-center justify-end">
-              <span class="text-xs sm:text-sm" style="color:var(--muted)">Bereik</span>
-              <div class="flex gap-1" role="group" aria-label="Bereik in weken">
-                <button class="btn range-btn" data-range="8">8</button>
-                <button class="btn range-btn" data-range="16">16</button>
-                <button class="btn range-btn" data-range="32">32</button>
-                <button class="btn range-btn" data-range="season">Seizoen</button>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-1 sm:gap-2 items-center justify-end">
-              <span class="text-xs sm:text-sm" style="color:var(--muted)">Stap</span>
-              <div class="flex gap-1" role="group" aria-label="Samenname per aantal weken">
-                <button class="btn step-btn" data-step="1">1w</button>
-                <button class="btn step-btn" data-step="2">2w</button>
-                <button class="btn step-btn" data-step="4">4w</button>
-                <button class="btn step-btn" data-step="8">8w</button>
-              </div>
+          <!-- Controls: bereik (2/4/8 weken of volledige seizoen) -->
+          <div class="flex flex-wrap gap-2 no-print items-center justify-end w-full sm:w-auto">
+            <span class="text-xs sm:text-sm" style="color:var(--muted)">Bereik</span>
+            <div class="flex gap-1" role="group" aria-label="Bereik in weken">
+              <!-- Laatste 2/4/8 weken of het volledige seizoen -->
+              <button class="btn range-btn" data-range="2">2</button>
+              <button class="btn range-btn" data-range="4">4</button>
+              <button class="btn range-btn" data-range="8">8</button>
+              <button class="btn range-btn" data-range="season">Seizoen</button>
             </div>
           </div>
         </div>
@@ -274,8 +264,8 @@
 
   /* ---------- state ---------- */
   let chart, allRows=[], seasonRows=[], seasonStartYear, latestRow, contractKey='contract_price';
-  let currentRange='season';   // '8' | '16' | '32' | 'season'
-  let currentStep=1;           // 1 | 2 | 4 | 8
+  // Toon ofwel het volledige seizoen of de laatste 2/4/8 weken
+  let currentRange='season';   // '2' | '4' | '8' | 'season'
 
   /* ---------- loaders ---------- */
   const showLoaders=()=>{ document.getElementById('chartLoader').classList.remove('loading-hidden'); document.getElementById('tableLoader').classList.remove('loading-hidden'); };
@@ -310,53 +300,41 @@
     document.getElementById('year').textContent = new Date().getFullYear();
   }
 
-  // Build dataset obv range + samenname (gemiddelde per N weken)
+  // Bereken dataset op basis van bereik (zonder samenname)
   function buildSeries(){
-    const rows = [...seasonRows];
-    rows.sort((a,b)=> a.friday_date.localeCompare(b.friday_date));
-
-    // Filter op bereik (laatste X weken)
+    // Sorteer rijen op vrijdag-datum
+    const rows = [...seasonRows].sort((a,b)=> a.friday_date.localeCompare(b.friday_date));
+    // Filter op bereik: laatste 2/4/8 weken, of het hele seizoen
     let working = rows;
-    if (currentRange!=='season'){
+    if (currentRange !== 'season'){
       const lastN = Number(currentRange);
       working = rows.slice(-lastN);
     }
-
-    // Groeperen per 'step' weken
-    const groups=[];
-    let buf=[];
-    for (let i=0;i<working.length;i++){
-      buf.push(working[i]);
-      if (buf.length===currentStep || i===working.length-1){
-        groups.push(buf);
-        buf=[];
-      }
-    }
-
-    const labels = groups.map(g=>{
-      const a=g[0], z=g[g.length-1];
-      if (g.length===1) return a.week_label;
-      return `${String(a.week_num).padStart(2,'0')}–${String(z.week_num).padStart(2,'0')} ${z.week_year}`;
-    });
-
-    function avg(arr, key){
-      const vals = arr.map(r=>toNum(r[key])).filter(v=>v!=null);
-      if (!vals.length) return null;
-      return Math.round(vals.reduce((s,v)=>s+v,0)/vals.length);
-    }
-
-    const contract = groups.map(g=>avg(g, contractKey));
-    const quote    = groups.map(g=>avg(g, 'notering'));
-
-    const vals=[...contract,...quote].filter(Number.isFinite);
-    let yMin=0,yMax=100,step=10;
+    // Labels per week
+    const labels = working.map(r => r.week_label);
+    // Waarden voor contractprijs en notering
+    const contract = working.map(r => toNum(r[contractKey]));
+    const quote    = working.map(r => toNum(r.notering));
+    // Bepaal Y-as grenzen en stapgrootte
+    const vals = [...contract, ...quote].filter(Number.isFinite);
+    let yMin=0,yMax=100,yStep=10;
     if(vals.length){
-      const lo=Math.min(...vals), hi=Math.max(...vals), span=hi-lo, pad=Math.max(10,Math.round(span*0.12));
-      const niceStep=sp=>{ const t=Math.max(1,sp/6), p=10**Math.floor(Math.log10(t)), b=t/p; return (b<=1?1:b<=2?2:b<=5?5:10)*p; };
-      step=niceStep(span||10); yMin=Math.max(0,Math.floor((lo-pad)/step)*step); yMax=Math.ceil((hi+pad)/step)*step; if(yMax<=yMin) yMax=yMin+step;
+      const lo=Math.min(...vals), hi=Math.max(...vals);
+      const span = hi - lo;
+      const pad = Math.max(10, Math.round(span * 0.12));
+      // Bepaal een 'mooie' stapgrootte
+      const niceStep = sp => {
+        const t = Math.max(1, sp / 6);
+        const p = 10 ** Math.floor(Math.log10(t));
+        const b = t / p;
+        return (b<=1?1:b<=2?2:b<=5?5:10)*p;
+      };
+      yStep = niceStep(span || 10);
+      yMin = Math.max(0, Math.floor((lo - pad) / yStep) * yStep);
+      yMax = Math.ceil((hi + pad) / yStep) * yStep;
+      if(yMax <= yMin) yMax = yMin + yStep;
     }
-
-    return { labels, contract, quote, yMin, yMax, yStep:step };
+    return { labels, contract, quote, yMin, yMax, yStep };
   }
 
   function renderChart(){
@@ -474,19 +452,16 @@
     document.getElementById('btn-pdf').onclick=makePDF;
     document.getElementById('m-pdf').onclick=makePDF;
 
-    // bereik & step toggles
+    // bereik toggles
     document.querySelectorAll('.range-btn').forEach(b=>{
-      b.addEventListener('click',()=>{ currentRange=b.dataset.range; setActive('.range-btn', currentRange, 'data-range'); renderChart(); });
+      b.addEventListener('click',()=>{
+        currentRange = b.dataset.range;
+        setActive('.range-btn', currentRange, 'data-range');
+        renderChart();
+      });
     });
-    document.querySelectorAll('.step-btn').forEach(b=>{
-      b.addEventListener('click',()=>{ currentStep=Number(b.dataset.step); setActive('.step-btn', currentStep, 'data-step'); renderChart(); });
-    });
-    // default active
-    function setDefaultActive(){
-      document.querySelector('.range-btn[data-range="season"]').classList.add('btn-active');
-      document.querySelector('.step-btn[data-step="1"]').classList.add('btn-active');
-    }
-    setDefaultActive();
+    // Highlight standaard keus (seizoen)
+    setActive('.range-btn', currentRange, 'data-range');
 
     showLoaders();
     const data=await fetchJSON(APP_SCRIPT_JSON_URL);
