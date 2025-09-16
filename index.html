@@ -39,7 +39,7 @@
 <body>
   <!-- Topbar -->
   <header class="sticky top-0 z-20 border-b bg-white/90 backdrop-blur" style="border-color:var(--line)">
-    <div class="max-w-6xl mx-auto px-3 md:px-4 py-2 md:py-3 flex items-center justify-between gap-3">
+    <div class="max-w-6xl mx-auto px-3 md:px-4 py-2 md:py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <img src="assets/belgapom-logo.svg" alt="Belgapom" class="h-8 w-auto"/>
         <div>
@@ -47,12 +47,12 @@
           <p id="subtitle" class="text-xs md:text-sm" style="color:var(--muted)">Contractprijzen en wekelijkse notering (vrije aardappelen)</p>
         </div>
       </div>
-      <div class="flex gap-1 md:gap-2 no-print">
+      <div class="flex flex-wrap gap-1 md:gap-2 no-print mt-2 sm:mt-0">
         <button id="btn-nl" class="btn">NL</button>
         <button id="btn-fr" class="btn">FR</button>
         <button id="btn-en" class="btn">EN</button>
-        <button id="btn-print" class="btn hidden md:inline-flex">Print</button>
-        <button id="btn-pdf" class="btn" style="background:var(--brand-primary);border-color:transparent;color:#1a1a1a">Download PDF</button>
+        <button id="btn-print" class="btn hidden md:inline-flex" data-i18n="print_label">Print</button>
+        <button id="btn-pdf" class="btn hidden md:inline-flex" style="background:var(--brand-primary);border-color:transparent;color:#1a1a1a" data-i18n="pdf_download">Download PDF</button>
       </div>
     </div>
   </header>
@@ -92,7 +92,7 @@
         </div>
 
         <!-- Notice geen notering -->
-        <div id="noQuoteNotice" class="mx-3 md:mx-4 mb-3 notice hidden">Geen notering wegens gebrek aan transacties</div>
+        <div id="noQuoteNotice" class="mx-3 md:mx-4 mb-3 notice hidden" data-i18n="no_quote_notice">Geen notering wegens gebrek aan transacties</div>
 
         <!-- Chart -->
         <div class="relative h-[320px] md:h-[420px] px-2 pb-2" id="chartWrap">
@@ -164,8 +164,8 @@
   <div class="fixed bottom-3 inset-x-0 px-3 md:hidden no-print z-30">
     <div class="max-w-6xl mx-auto">
       <div class="flex gap-2 p-2 rounded-2xl shadow-lg" style="background:var(--card); border:1px solid var(--line)">
-        <button id="m-print" class="flex-1 btn">Print</button>
-        <button id="m-pdf" class="flex-1 btn-active">Download PDF</button>
+        <button id="m-print" class="flex-1 btn" data-i18n="print_label">Print</button>
+        <button id="m-pdf" class="flex-1 btn-active" data-i18n="pdf_download">Download PDF</button>
       </div>
     </div>
   </div>
@@ -190,6 +190,9 @@
         "Daarom toont de grafiek naast de notering ook de evolutie van contractprijzen."
       ],
       loading_chart:"Data laden…", loading_table:"Tabel laden…", loading_error:"Kon data niet laden: "
+      ,pdf_download:"Download PDF"
+      ,no_quote_notice:"Geen notering wegens gebrek aan transacties"
+      ,print_label:"Print"
     },
     fr:{ title:"Belgapom – Cotation", subtitle:"Prix contractuels et cotation hebdomadaire (pommes de terre libres)",
       kpi_quote:"Cotation", kpi_week:"Semaine", kpi_date:"Date", kpi_sentiment:"Tendance du marché",
@@ -205,6 +208,9 @@
         "C’est pourquoi le graphique affiche également l’évolution des prix contractuels."
       ],
       loading_chart:"Chargement des données…", loading_table:"Chargement du tableau…", loading_error:"Impossible de charger les données : "
+      ,pdf_download:"Télécharger PDF"
+      ,no_quote_notice:"Pas de cotation faute de transactions"
+      ,print_label:"Imprimer"
     },
     en:{ title:"Belgapom – Quotation", subtitle:"Contract prices and weekly quotation (free potatoes)",
       kpi_quote:"Quotation", kpi_week:"Week", kpi_date:"Date", kpi_sentiment:"Market sentiment",
@@ -220,6 +226,9 @@
         "Therefore, the chart shows contract price evolution alongside the weekly quotation."
       ],
       loading_chart:"Loading data…", loading_table:"Loading table…", loading_error:"Could not load data: "
+      ,pdf_download:"Download PDF"
+      ,no_quote_notice:"No quotation due to lack of transactions"
+      ,print_label:"Print"
     }
   };
   function applyI18N(){
@@ -335,6 +344,65 @@
 
   async function makePDF(){ const { jsPDF } = window.jspdf; const doc=new jsPDF({ unit:'pt', format:'a4' }); const root=document.getElementById('contentRoot'); doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(17,24,39); doc.text(document.getElementById('title').textContent, 40, 40); doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(80); doc.text(document.getElementById('subtitle').textContent, 40, 58); const chartCard=root.querySelector('section > div'); const tableCard=root.querySelector('aside > div:nth-child(2)'); const pad=24; let y=80; async function addBlock(el){ const canvas=await html2canvas(el,{ scale:2, backgroundColor:null }); const img=canvas.toDataURL('imagePNG'); const pageW=doc.internal.pageSize.getWidth(); const maxW=pageW-2*40; const ratio=canvas.width/canvas.height; const w=Math.min(maxW, canvas.width); const h=w/ratio; if(y+h>doc.internal.pageSize.getHeight()-40){ doc.addPage(); y=40;} doc.addImage(img,'PNG',40,y,w,h,undefined,'FAST'); y+=h+pad; } await addBlock(chartCard); await addBlock(tableCard); const fname=`belgapom-notering_${new Date().toISOString().slice(0,10)}.pdf`; doc.save(fname); }
 
+  /*
+   * Revised PDF generator that scales content to fit the available page area. The legacy
+   * makePDF() remains for compatibility, but the UI will call this improved version.
+   */
+  async function makePDFImproved(){
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'pt', format:'a4' });
+    const root = document.getElementById('contentRoot');
+    // Draw header on first page
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(14);
+    doc.setTextColor(17,24,39);
+    doc.text(document.getElementById('title').textContent, 40, 40);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(80);
+    doc.text(document.getElementById('subtitle').textContent, 40, 58);
+    const chartCard = root.querySelector('section > div');
+    const tableCard = root.querySelector('aside > div:nth-child(2)');
+    const pad = 24;
+    let y = 80;
+    async function addBlock(el){
+      const canvas = await html2canvas(el, { scale:2, backgroundColor:null });
+      const imgData = canvas.toDataURL('imagePNG');
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 40;
+      let w = canvas.width;
+      let h = canvas.height;
+      // Fit width
+      const maxW = pageW - 2*margin;
+      if (w > maxW) {
+        const s = maxW / w;
+        w = maxW;
+        h = h * s;
+      }
+      // Fit height
+      const availH = pageH - margin - y;
+      if (h > availH && h > 0) {
+        const s = availH / h;
+        if (s < 1) {
+          w = w * s;
+          h = h * s;
+        }
+      }
+      // New page if needed
+      if (y + h > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      doc.addImage(imgData, 'PNG', margin, y, w, h, undefined, 'FAST');
+      y += h + pad;
+    }
+    await addBlock(chartCard);
+    await addBlock(tableCard);
+    const fname = `belgapom-notering_${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(fname);
+  }
+
   async function fetchJSON(u){ const r=await fetch(u,{cache:'no-store'}); const t=await r.text(); if(!t) throw new Error('Lege respons'); if(t.trim().startsWith('<')) throw new Error('HTML i.p.v. JSON'); return JSON.parse(t); }
 
   (async function init(){
@@ -347,8 +415,9 @@
 
     document.getElementById('btn-print').onclick=()=>window.print();
     document.getElementById('m-print').onclick=()=>window.print();
-    document.getElementById('btn-pdf').onclick=makePDF;
-    document.getElementById('m-pdf').onclick=makePDF;
+    // Use improved PDF generator for better layout on export
+    document.getElementById('btn-pdf').onclick=makePDFImproved;
+    document.getElementById('m-pdf').onclick=makePDFImproved;
 
     document.querySelectorAll('.range-btn').forEach(b=>{ b.addEventListener('click',()=>{ currentRange=b.dataset.range; setActive('.range-btn', currentRange, 'data-range'); renderChart(); }); });
     setActive('.range-btn','season','data-range');
