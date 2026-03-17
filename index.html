@@ -583,92 +583,127 @@ function renderPrimeurs(){
   rows.forEach(r=>{const tr=document.createElement('tr');tr.innerHTML=`<td>W${String(r.week_num).padStart(2,'0')}</td><td>${formatDateISO(r.friday_date||r.date)}</td><td class="td-quote">${(r.notering==null||r.notering==='')?'–':euro(r.notering)}</td>`;tb.appendChild(tr);});
 }
 
+let pdfBusy=false;
 async function makePDFImproved(){
-  const{jsPDF}=window.jspdf;
-  const doc=new jsPDF({unit:'pt',format:'a4'});
-  const pw=doc.internal.pageSize.getWidth();
-  const ph=doc.internal.pageSize.getHeight();
-  const m=36;
-  const maxW=pw-2*m;
-  let y=m;
+  if(pdfBusy) return;
+  pdfBusy=true;
 
-  // Title
-  doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(26,26,26);
-  doc.text(document.getElementById('title').textContent,m,y+14);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120);
-  doc.text(document.getElementById('subtitle').textContent,m,y+28);
-  y+=44;
+  // Show loading state on all PDF buttons
+  const btns=[document.getElementById('btn-pdf'),document.getElementById('m-pdf')].filter(Boolean);
+  const origTexts=btns.map(b=>b.textContent);
+  btns.forEach(b=>{b.textContent='PDF genereren…';b.style.opacity='.6';b.style.pointerEvents='none';});
 
-  // Temporarily disable animations and round corners for cleaner capture
-  const root=document.documentElement;
-  root.style.setProperty('--radius','4px');
-  root.style.setProperty('--radius-sm','4px');
-  document.querySelectorAll('.anim-in').forEach(el=>{el.style.animation='none';el.style.opacity='1';});
+  try{
+    const{jsPDF}=window.jspdf;
+    const doc=new jsPDF({unit:'pt',format:'a4'});
+    const pw=doc.internal.pageSize.getWidth();
+    const ph=doc.internal.pageSize.getHeight();
+    const m=36;
+    const maxW=pw-2*m;
+    let y=m;
 
-  async function capture(el){
-    if(!el||el.offsetHeight===0) return null;
-    return await html2canvas(el,{
-      scale:2,
-      backgroundColor:'#ffffff',
-      useCORS:true,
-      logging:false,
-      windowWidth:1200,
-      onclone:function(clonedDoc){
-        // Force backgrounds to render
-        clonedDoc.querySelectorAll('.kpi-card,.kpi-week-badge,.kpi-sentiment,.table-card-header,.dtable th,.chip-green,.chip-slate,.chip-red').forEach(el=>{
-          el.style.webkitPrintColorAdjust='exact';
-          el.style.printColorAdjust='exact';
-        });
-        // Remove overflow hidden on table scrolls for full capture
-        clonedDoc.querySelectorAll('.table-scroll').forEach(el=>{
-          el.style.maxHeight='none';
-          el.style.overflow='visible';
-        });
-        // Remove no-print elements
-        clonedDoc.querySelectorAll('.no-print,.mobile-bar').forEach(el=>el.remove());
-      }
-    });
+    // Title
+    doc.setFont('helvetica','bold');doc.setFontSize(16);doc.setTextColor(26,26,26);
+    doc.text(document.getElementById('title').textContent,m,y+14);
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(120);
+    doc.text(document.getElementById('subtitle').textContent,m,y+28);
+    y+=44;
+
+    // Temporarily simplify styles for capture
+    const root=document.documentElement;
+    root.style.setProperty('--radius','4px');
+    root.style.setProperty('--radius-sm','4px');
+    document.querySelectorAll('.anim-in').forEach(el=>{el.style.animation='none';el.style.opacity='1';});
+
+    async function capture(el){
+      if(!el||el.offsetHeight===0) return null;
+      return await html2canvas(el,{
+        scale:1.5,
+        backgroundColor:'#ffffff',
+        useCORS:true,
+        logging:false,
+        windowWidth:1200,
+        onclone:function(clonedDoc){
+          clonedDoc.querySelectorAll('.kpi-card,.kpi-week-badge,.kpi-sentiment,.table-card-header,.dtable th,.chip-green,.chip-slate,.chip-red').forEach(el=>{
+            el.style.webkitPrintColorAdjust='exact';
+            el.style.printColorAdjust='exact';
+          });
+          clonedDoc.querySelectorAll('.table-scroll').forEach(el=>{
+            el.style.maxHeight='none';
+            el.style.overflow='visible';
+          });
+          clonedDoc.querySelectorAll('.no-print,.mobile-bar,.back-to-top').forEach(el=>el.remove());
+        }
+      });
+    }
+
+    function addImg(canvas,pad){
+      if(!canvas) return;
+      const img=canvas.toDataURL('image/jpeg',0.92);
+      let w=canvas.width,h=canvas.height;
+      const s=maxW/w; w=maxW; h=h*s;
+      const maxH=ph-2*m;
+      if(h>maxH){const s2=maxH/h; w*=s2; h=maxH;}
+      if(y+h>ph-m){doc.addPage();y=m;}
+      doc.addImage(img,'JPEG',m,y,w,h,undefined,'FAST');
+      y+=h+(pad||16);
+    }
+
+    // Capture KPI section
+    addImg(await capture(document.getElementById('heroSection')),20);
+
+    // Charts: use native Chart.js export (much faster than html2canvas)
+    function addChart(chartInstance,title,pad){
+      if(!chartInstance) return;
+      // Create a temp canvas with white background + chart on top
+      const src=chartInstance.canvas;
+      const tmp=document.createElement('canvas');
+      tmp.width=src.width; tmp.height=src.height;
+      const ctx=tmp.getContext('2d');
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(0,0,tmp.width,tmp.height);
+      ctx.drawImage(src,0,0);
+      const img=tmp.toDataURL('image/png');
+      const cw=chartInstance.width, ch=chartInstance.height;
+      let w=maxW, h=(ch/cw)*maxW;
+      const maxH=ph-2*m-30;
+      if(h>maxH){const s=maxH/h; w*=s; h=maxH;}
+      if(y+20+h>ph-m){doc.addPage();y=m;}
+      // Title above chart
+      doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(26,26,26);
+      doc.text(title,m,y+12);
+      y+=22;
+      doc.addImage(img,'PNG',m,y,w,h,undefined,'FAST');
+      y+=h+(pad||20);
+    }
+
+    addChart(chartFontane,'Fontane',20);
+    addChart(chartChallenger,'Challenger',20);
+
+    // Tables
+    const tablesEl=document.querySelector('.tables-section');
+    if(tablesEl) addImg(await capture(tablesEl),20);
+
+    // Footer
+    const footerEl=document.querySelector('.info-footer');
+    if(footerEl) addImg(await capture(footerEl),16);
+
+    // Primeurs
+    const primeursEl=document.getElementById('primeursSection');
+    if(primeursEl&&primeursEl.style.display!=='none') addImg(await capture(primeursEl),16);
+
+    // Restore
+    root.style.removeProperty('--radius');
+    root.style.removeProperty('--radius-sm');
+    document.querySelectorAll('.anim-in').forEach(el=>{el.style.animation='';el.style.opacity='';});
+
+    doc.save(`belgapom-notering_${new Date().toISOString().slice(0,10)}.pdf`);
+  }catch(err){
+    console.error('PDF error:',err);
+  }finally{
+    btns.forEach((b,i)=>{b.textContent=origTexts[i];b.style.opacity='';b.style.pointerEvents='';});
+    pdfBusy=false;
   }
-
-  async function addBlock(el,pad){
-    const canvas=await capture(el);
-    if(!canvas) return;
-    const img=canvas.toDataURL('image/png');
-    let w=canvas.width,h=canvas.height;
-    // Scale to fit page width
-    const s=maxW/w; w=maxW; h=h*s;
-    // If block is taller than page, scale down to fit
-    const maxH=ph-2*m;
-    if(h>maxH){const s2=maxH/h; w*=s2; h=maxH;}
-    // Page break if needed
-    if(y+h>ph-m){doc.addPage();y=m;}
-    doc.addImage(img,'PNG',m,y,w,h,undefined,'FAST');
-    y+=h+(pad||16);
-  }
-
-  // Capture each section
-  await addBlock(document.getElementById('heroSection'),20);
-  await addBlock(document.getElementById('fontaneCard'),20);
-  await addBlock(document.getElementById('challengerCard'),20);
-
-  // Tables side by side - capture whole tables-section
-  const tablesEl=document.querySelector('.tables-section');
-  if(tablesEl) await addBlock(tablesEl,20);
-
-  // Footer
-  const footerEl=document.querySelector('.info-footer');
-  if(footerEl) await addBlock(footerEl,16);
-
-  // Primeurs if visible
-  const primeursEl=document.getElementById('primeursSection');
-  if(primeursEl&&primeursEl.style.display!=='none') await addBlock(primeursEl,16);
-
-  // Restore styles
-  root.style.removeProperty('--radius');
-  root.style.removeProperty('--radius-sm');
-  document.querySelectorAll('.anim-in').forEach(el=>{el.style.animation='';el.style.opacity='';});
-
-  doc.save(`belgapom-notering_${new Date().toISOString().slice(0,10)}.pdf`);
 }
 
 async function fetchJSON(u){const r=await fetch(u,{cache:'no-store'});const t=await r.text();if(!t)throw new Error('Lege respons');if(t.trim().startsWith('<'))throw new Error('HTML i.p.v. JSON');return JSON.parse(t);}
