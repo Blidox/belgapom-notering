@@ -708,6 +708,53 @@ async function makePDFImproved(){
 
 async function fetchJSON(u){const r=await fetch(u,{cache:'no-store'});const t=await r.text();if(!t)throw new Error('Lege respons');if(t.trim().startsWith('<'))throw new Error('HTML i.p.v. JSON');return JSON.parse(t);}
 
+// De wekelijkse notering verschijnt pas vanaf vrijdagochtend 08:00 (Europe/Brussels).
+// Vóór dat tijdstip houden we nog de notering van de vórige vrijdag aan, zodat de
+// notering niet om middernacht maar pas om 8u 's ochtends verspringt.
+const QUOTE_UPDATE_HOUR=8;
+function computeCutoffFridayISO(){
+  const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Brussels'}));
+  const dow=now.getDay();
+  let daysSinceFriday=dow>=5?dow-5:dow+2;
+  if(dow===5&&now.getHours()<QUOTE_UPDATE_HOUR)daysSinceFriday=7;
+  const lf=new Date(now);lf.setDate(now.getDate()-daysSinceFriday);
+  const y=lf.getFullYear(),m=String(lf.getMonth()+1).padStart(2,'0'),d=String(lf.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+
+// Lokale cache zodat een terugkerende bezoeker de notering meteen ziet.
+const DATA_CACHE_KEY='belgapom_data_cache_v1';
+
+function render(data){
+  const rows=Array.isArray(data.rows)?data.rows:[];if(!rows.length)throw new Error('Geen rijen');
+  allRows=rows;contractKey=['contract_price','contractprijs','contract'].find(k=>k in allRows[0])||'contract_price';
+  const nonPrimeRows=allRows.filter(r=>!r.is_primeur);primeurRows=allRows.filter(r=>r.is_primeur===true);
+  const baseForLatest=nonPrimeRows.length?nonPrimeRows:allRows;
+  const cutoffIso=computeCutoffFridayISO();
+  const target=isoWeekMetaJS(new Date(cutoffIso+'T00:00:00'));
+  latestOverallRow=[...baseForLatest].reverse().find(r=>{const hq=(r.notering_fontane!=null)||(r.notering_challenger!=null)||(r.notering!=null)||(r[contractKey]!=null);if(!hq)return false;const m=isoWeekMetaJS(new Date((r.friday_date||r.date)+'T00:00:00'));return m.week===target.week&&m.year===target.year;})||baseForLatest[baseForLatest.length-1];
+  const seasonsRaw=Array.from(new Set(nonPrimeRows.map(r=>r.week_num>=36?r.week_year:r.week_year-1))).sort((a,b)=>b-a);
+  const allowed=[2024,2025].filter(y=>seasonsRaw.includes(y));
+  const sel=document.getElementById('seasonSelect');sel.innerHTML='';
+  allowed.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=`W36 ${y} – W36 ${y+1}`;sel.appendChild(o);});
+  const suggested=data.meta&&data.meta.suggested_season_start_year;
+  seasonStartYear=allowed.includes(suggested)?suggested:(allowed[0]||seasonsRaw[0]);sel.value=seasonStartYear;
+  function updateSeason(){
+    const y=parseInt(sel.value,10);seasonStartYear=y;
+    const sd=isoWeekStart(y,36),em=isoWeekStart(y+1,36),ed=new Date(em);ed.setDate(em.getDate()+6);
+    seasonRows=nonPrimeRows.filter(r=>{const d=new Date((r.friday_date||r.date)+'T00:00:00');return d>=sd&&d<=ed;});
+    const st=`W36 ${y} – W36 ${y+1}`;
+    const lf=document.getElementById('seasonLabelVarietyFontane'),lc=document.getElementById('seasonLabelVarietyChallenger');
+    if(lf)lf.textContent=st;if(lc)lc.textContent=st;
+    renderChartFontane();renderChartChallenger();renderTableVariety('fontane');renderTableVariety('challenger');
+  }
+  sel.onchange=updateSeason;updateSeason();renderKPIVarieties();
+  if(primeurRows.length){primeurYears=Array.from(new Set(primeurRows.map(r=>new Date((r.friday_date||r.date)+'T00:00:00').getFullYear()))).sort((a,b)=>b-a);currentPrimeurYear=primeurYears[0];renderPrimeursTabs();renderPrimeurs();document.getElementById('primeursSection').style.display='';}else{document.getElementById('primeursSection').style.display='none';}
+  document.getElementById('lastUpdate').textContent=new Date().toLocaleString(LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE',{timeZone:'Europe/Brussels'});
+  document.getElementById('year').textContent=new Date().getFullYear();
+  hideLoaders();
+}
+
 (async function init(){
   applyI18N();
 
@@ -724,39 +771,25 @@ async function fetchJSON(u){const r=await fetch(u,{cache:'no-store'});const t=aw
   document.getElementById('btn-pdf').onclick=makePDFImproved;
   document.getElementById('m-pdf').onclick=makePDFImproved;
 
+  // 1) Toon onmiddellijk de laatst gekende data uit de cache (geen wachttijd).
+  let rendered=false,cachedStr=null;
+  try{
+    cachedStr=localStorage.getItem(DATA_CACHE_KEY);
+    if(cachedStr){const cd=JSON.parse(cachedStr);if(cd&&Array.isArray(cd.rows)&&cd.rows.length){render(cd);rendered=true;}}
+  }catch(_){cachedStr=null;}
+
+  // 2) Haal op de achtergrond verse data op en ververs enkel bij wijziging.
   try{
     const data=await fetchJSON(APP_SCRIPT_JSON_URL);
-    const rows=Array.isArray(data.rows)?data.rows:[];if(!rows.length)throw new Error('Geen rijen');
-    allRows=rows;contractKey=['contract_price','contractprijs','contract'].find(k=>k in allRows[0])||'contract_price';
-    const nonPrimeRows=allRows.filter(r=>!r.is_primeur);primeurRows=allRows.filter(r=>r.is_primeur===true);
-    const baseForLatest=nonPrimeRows.length?nonPrimeRows:allRows;
-    const cutoffIso=(data.meta&&data.meta.latest_cutoff_friday_iso)||(()=>{const now=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Brussels'}));const dow=now.getDay();const dsf=dow>=5?dow-5:dow+2;const lf=new Date(now);lf.setDate(now.getDate()-dsf);return lf.toISOString().slice(0,10);})();
-    const target=isoWeekMetaJS(new Date(cutoffIso+'T00:00:00'));
-    latestOverallRow=[...baseForLatest].reverse().find(r=>{const hq=(r.notering_fontane!=null)||(r.notering_challenger!=null)||(r.notering!=null)||(r[contractKey]!=null);if(!hq)return false;const m=isoWeekMetaJS(new Date((r.friday_date||r.date)+'T00:00:00'));return m.week===target.week&&m.year===target.year;})||baseForLatest[baseForLatest.length-1];
-    const seasonsRaw=Array.from(new Set(nonPrimeRows.map(r=>r.week_num>=36?r.week_year:r.week_year-1))).sort((a,b)=>b-a);
-    const allowed=[2024,2025].filter(y=>seasonsRaw.includes(y));
-    const sel=document.getElementById('seasonSelect');sel.innerHTML='';
-    allowed.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=`W36 ${y} – W36 ${y+1}`;sel.appendChild(o);});
-    const suggested=data.meta&&data.meta.suggested_season_start_year;
-    seasonStartYear=allowed.includes(suggested)?suggested:(allowed[0]||seasonsRaw[0]);sel.value=seasonStartYear;
-    function updateSeason(){
-      const y=parseInt(sel.value,10);seasonStartYear=y;
-      const sd=isoWeekStart(y,36),em=isoWeekStart(y+1,36),ed=new Date(em);ed.setDate(em.getDate()+6);
-      seasonRows=nonPrimeRows.filter(r=>{const d=new Date((r.friday_date||r.date)+'T00:00:00');return d>=sd&&d<=ed;});
-      const st=`W36 ${y} – W36 ${y+1}`;
-      const lf=document.getElementById('seasonLabelVarietyFontane'),lc=document.getElementById('seasonLabelVarietyChallenger');
-      if(lf)lf.textContent=st;if(lc)lc.textContent=st;
-      renderChartFontane();renderChartChallenger();renderTableVariety('fontane');renderTableVariety('challenger');
-    }
-    sel.onchange=updateSeason;updateSeason();renderKPIVarieties();
-    if(primeurRows.length){primeurYears=Array.from(new Set(primeurRows.map(r=>new Date((r.friday_date||r.date)+'T00:00:00').getFullYear()))).sort((a,b)=>b-a);currentPrimeurYear=primeurYears[0];renderPrimeursTabs();renderPrimeurs();document.getElementById('primeursSection').style.display='';}else{document.getElementById('primeursSection').style.display='none';}
-    document.getElementById('lastUpdate').textContent=new Date().toLocaleString(LANG==='fr'?'fr-BE':LANG==='en'?'en-GB':'nl-BE',{timeZone:'Europe/Brussels'});
-    document.getElementById('year').textContent=new Date().getFullYear();
-    hideLoaders();
+    const freshStr=JSON.stringify(data);
+    if(!(rendered&&freshStr===cachedStr))render(data);
+    try{localStorage.setItem(DATA_CACHE_KEY,freshStr);}catch(_){}
   }catch(err){
-    const d=T[LANG]||T.nl;
-    ['chartLoaderText','chart2LoaderText','tableLoaderText','table2LoaderText'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(d.loading_error||'')+err.message;});
-    ['chartLoader','chart2Loader','tableLoader','table2Loader'].forEach(id=>document.getElementById(id).classList.remove('loading-hidden'));
+    if(!rendered){
+      const d=T[LANG]||T.nl;
+      ['chartLoaderText','chart2LoaderText','tableLoaderText','table2LoaderText'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(d.loading_error||'')+err.message;});
+      ['chartLoader','chart2Loader','tableLoader','table2Loader'].forEach(id=>document.getElementById(id).classList.remove('loading-hidden'));
+    }
   }
 })();
 </script>
