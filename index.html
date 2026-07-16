@@ -660,7 +660,10 @@ function renderChartChallenger(){if(chartChallenger)chartChallenger.destroy();ch
 const primeurQuote=r=>toNum(r.notering!=null?r.notering:(r.notering_fontane!=null?r.notering_fontane:r.notering_challenger));
 const primeurYearOf=r=>new Date((r.friday_date||r.date)+'T00:00:00').getFullYear();
 function primeurPeriodLabel(y){const t=(T[LANG]&&T[LANG].primeurs_period)||'{year}';return t.replace('{year}',y==null?'':String(y));}
-function primeurRowsForYear(){return primeurRows.filter(r=>primeurYearOf(r)===currentPrimeurYear).sort((a,b)=>String(a.friday_date||a.date).localeCompare(String(b.friday_date||b.date)));}
+/* Enkel rijen t.e.m. de cutoff-vrijdag (zelfde logica als de notering: verspringt vrijdag om 8u).
+   Het primeurs-tabblad bevat vooraf ingevulde toekomstige weken; die mogen nog niet getoond worden. */
+function eligiblePrimeurRows(){const cutoff=computeCutoffFridayISO();return primeurRows.filter(r=>String(r.friday_date||r.date)<=cutoff);}
+function primeurRowsForYear(){return eligiblePrimeurRows().filter(r=>primeurYearOf(r)===currentPrimeurYear).sort((a,b)=>String(a.friday_date||a.date).localeCompare(String(b.friday_date||b.date)));}
 function updatePrimeurLabels(){
   const lp=document.getElementById('seasonLabelPrimeurs');if(lp)lp.textContent=primeurPeriodLabel(currentPrimeurYear);
   const ts=document.getElementById('primeurTableSeason');if(ts)ts.textContent=primeurPeriodLabel(currentPrimeurYear);
@@ -904,8 +907,9 @@ function render(data){
   }
   sel.onchange=updateSeason;updateSeason();renderKPIVarieties();
 
-  // Primeurs-weergave
-  primeurYears=Array.from(new Set(primeurRows.map(primeurYearOf))).sort((a,b)=>b-a);
+  // Primeurs-weergave (enkel rijen t.e.m. de cutoff-vrijdag, net zoals de notering)
+  const primEligible=eligiblePrimeurRows();
+  primeurYears=Array.from(new Set(primEligible.map(primeurYearOf))).sort((a,b)=>b-a);
   const prevPrimeurYear=currentPrimeurYear;
   currentPrimeurYear=primeurYears.includes(prevPrimeurYear)?prevPrimeurYear:(primeurYears[0]!=null?primeurYears[0]:null);
   const psel=document.getElementById('primeurYearSelect');
@@ -913,9 +917,9 @@ function render(data){
   primeurYears.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=String(y);psel.appendChild(o);});
   if(currentPrimeurYear!=null)psel.value=currentPrimeurYear;
   psel.onchange=()=>{currentPrimeurYear=parseInt(psel.value,10);updatePrimeurLabels();renderPrimeurTable();if(VIEW==='primeurs')renderChartPrimeurs();};
-  latestPrimeurRow=[...primeurRows].reverse().find(r=>{const hq=(r.notering!=null)||(r.notering_fontane!=null)||(r.notering_challenger!=null);if(!hq)return false;const m=isoWeekMetaJS(new Date((r.friday_date||r.date)+'T00:00:00'));return m.week===target.week&&m.year===target.year;})||primeurRows[primeurRows.length-1]||null;
+  latestPrimeurRow=[...primEligible].reverse().find(r=>{const hq=(r.notering!=null)||(r.notering_fontane!=null)||(r.notering_challenger!=null);if(!hq)return false;const m=isoWeekMetaJS(new Date((r.friday_date||r.date)+'T00:00:00'));return m.week===target.week&&m.year===target.year;})||primEligible[primEligible.length-1]||null;
   const switchBar=document.getElementById('viewSwitchBar');
-  if(primeurRows.length){
+  if(primEligible.length){
     if(switchBar)switchBar.style.display='';
     updatePrimeurLabels();renderKPIPrimeurs();renderPrimeurTable();
     if(VIEW==='primeurs')renderChartPrimeurs();
