@@ -890,7 +890,11 @@ function render(data){
   const target=isoWeekMetaJS(new Date(cutoffIso+'T00:00:00'));
   latestOverallRow=[...baseForLatest].reverse().find(r=>{const hq=(r.notering_fontane!=null)||(r.notering_challenger!=null)||(r.notering!=null)||(r[contractKey]!=null);if(!hq)return false;const m=isoWeekMetaJS(new Date((r.friday_date||r.date)+'T00:00:00'));return m.week===target.week&&m.year===target.year;})||baseForLatest[baseForLatest.length-1];
   const seasonsRaw=Array.from(new Set(nonPrimeRows.map(r=>r.week_num>=36?r.week_year:r.week_year-1))).sort((a,b)=>b-a);
-  const allowed=[2024,2025].filter(y=>seasonsRaw.includes(y));
+  // Seizoenen komen uit de data zelf (geen hardcoded lijst), zodat een nieuw seizoen
+  // automatisch in de keuzelijst verschijnt zodra het in de Google Sheet staat.
+  // Alles vanaf seizoen 2024–2025 wordt getoond; oudere jaren blijven verborgen.
+  const FIRST_SEASON_START_YEAR=2024;
+  const allowed=seasonsRaw.filter(y=>y>=FIRST_SEASON_START_YEAR);
   const sel=document.getElementById('seasonSelect');sel.innerHTML='';
   allowed.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=`W36 ${y} – W36 ${y+1}`;sel.appendChild(o);});
   const suggested=data.meta&&data.meta.suggested_season_start_year;
