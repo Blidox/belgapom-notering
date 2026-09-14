@@ -929,8 +929,15 @@ function render(data){
   const allowed=seasonsRaw.filter(y=>y>=FIRST_SEASON_START_YEAR);
   const sel=document.getElementById('seasonSelect');sel.innerHTML='';
   allowed.forEach(y=>{const o=document.createElement('option');o.value=y;o.textContent=`W36 ${y} – W36 ${y+1}`;sel.appendChild(o);});
+  // Standaard altijd het seizoen waarin we vandaag zitten (W36 = seizoensgrens).
+  // suggested_season_start_year uit de backend loopt achter zodra er een paar weken
+  // geen notering is ingevuld, en zou dan het vorige seizoen openen; die waarde
+  // dient nog enkel als terugval, met als laatste redmiddel het nieuwste seizoen.
+  const currentSeasonStartYear=target.week>=36?target.year:target.year-1;
   const suggested=data.meta&&data.meta.suggested_season_start_year;
-  seasonStartYear=allowed.includes(suggested)?suggested:(allowed[0]||seasonsRaw[0]);sel.value=seasonStartYear;
+  seasonStartYear=allowed.includes(currentSeasonStartYear)?currentSeasonStartYear
+    :(allowed.includes(suggested)?suggested:(allowed[0]||seasonsRaw[0]));
+  sel.value=seasonStartYear;
   function updateSeason(){
     const y=parseInt(sel.value,10);seasonStartYear=y;
     const sd=isoWeekStart(y,36),em=isoWeekStart(y+1,36),ed=new Date(em);ed.setDate(em.getDate()+6);
