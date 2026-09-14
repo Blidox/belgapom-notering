@@ -881,12 +881,44 @@ function computeCutoffFridayISO(){
 // Lokale cache zodat een terugkerende bezoeker de notering meteen ziet.
 const DATA_CACHE_KEY='belgapom_data_cache_v1';
 
+/* ═══ Rijen samenvoegen per vrijdag ═══
+   Elk seizoen heeft een eigen tabblad in de Google Sheet en die tabbladen overlappen:
+   een seizoenstabblad loopt van W30 t.e.m. W35 van het volgende jaar, terwijl het live
+   tabblad DATA in diezelfde zomer al opnieuw begint. Dezelfde vrijdag zit daardoor in
+   twee tabbladen – ingevuld in het seizoenstabblad, nog leeg in DATA. Zonder deze stap
+   staat elke week uit die overlap twee keer in de tabel en twee keer in de grafiek. */
+const PRICE_FIELDS=['notering_fontane','notering_challenger','notering','contract_price','contractprijs','contract'];
+function hasSentiment(r){return r.marktstemming!=null&&String(r.marktstemming).trim()!=='';}
+function rowScore(r){let n=0;PRICE_FIELDS.forEach(k=>{if(r[k]!=null)n++;});if(hasSentiment(r))n++;return n;}
+function dedupeByFriday(rows){
+  const byDay=new Map();
+  rows.forEach(r=>{const k=String(r.friday_date||r.date);if(!byDay.has(k))byDay.set(k,[]);byDay.get(k).push(r);});
+  const out=[];
+  byDay.forEach(group=>{
+    if(group.length===1){out.push(group[0]);return;}
+    // Rijkste rij wint; bij gelijkspel de eerste (tabbladvolgorde, DATA staat vooraan).
+    let best=group[0],bestScore=rowScore(group[0]);
+    for(let i=1;i<group.length;i++){const sc=rowScore(group[i]);if(sc>bestScore){best=group[i];bestScore=sc;}}
+    const merged=Object.assign({},best);
+    group.forEach(r=>{
+      PRICE_FIELDS.forEach(k=>{if(merged[k]==null&&r[k]!=null)merged[k]=r[k];});
+      if(!hasSentiment(merged)&&hasSentiment(r))merged.marktstemming=r.marktstemming;
+    });
+    out.push(merged);
+  });
+  return out.sort((a,b)=>String(a.friday_date||a.date).localeCompare(String(b.friday_date||b.date)));
+}
+
 function render(data){
   const rows=Array.isArray(data.rows)?data.rows:[];if(!rows.length)throw new Error('Geen rijen');
   allRows=rows;contractKey=['contract_price','contractprijs','contract'].find(k=>k in allRows[0])||'contract_price';
-  const nonPrimeRows=allRows.filter(r=>!r.is_primeur);primeurRows=allRows.filter(r=>r.is_primeur===true);
-  const baseForLatest=nonPrimeRows.length?nonPrimeRows:allRows;
   const cutoffIso=computeCutoffFridayISO();
+  // Dubbele weken uit overlappende tabbladen wegwerken, en – net als bij de primeurs –
+  // de vooraf ingevulde toekomstige weken van het lopende seizoen nog niet tonen.
+  const nonPrimeRows=dedupeByFriday(allRows.filter(r=>!r.is_primeur))
+    .filter(r=>String(r.friday_date||r.date)<=cutoffIso);
+  primeurRows=allRows.filter(r=>r.is_primeur===true);
+  const baseForLatest=nonPrimeRows.length?nonPrimeRows:allRows;
   const target=isoWeekMetaJS(new Date(cutoffIso+'T00:00:00'));
   latestOverallRow=[...baseForLatest].reverse().find(r=>{const hq=(r.notering_fontane!=null)||(r.notering_challenger!=null)||(r.notering!=null)||(r[contractKey]!=null);if(!hq)return false;const m=isoWeekMetaJS(new Date((r.friday_date||r.date)+'T00:00:00'));return m.week===target.week&&m.year===target.year;})||baseForLatest[baseForLatest.length-1];
   const seasonsRaw=Array.from(new Set(nonPrimeRows.map(r=>r.week_num>=36?r.week_year:r.week_year-1))).sort((a,b)=>b-a);
