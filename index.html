@@ -890,6 +890,7 @@ const DATA_CACHE_KEY='belgapom_data_cache_v1';
 const PRICE_FIELDS=['notering_fontane','notering_challenger','notering','contract_price','contractprijs','contract'];
 function hasSentiment(r){return r.marktstemming!=null&&String(r.marktstemming).trim()!=='';}
 function rowScore(r){let n=0;PRICE_FIELDS.forEach(k=>{if(r[k]!=null)n++;});if(hasSentiment(r))n++;return n;}
+function hasAnyData(r){return rowScore(r)>0;}
 function dedupeByFriday(rows){
   const byDay=new Map();
   rows.forEach(r=>{const k=String(r.friday_date||r.date);if(!byDay.has(k))byDay.set(k,[]);byDay.get(k).push(r);});
@@ -915,10 +916,17 @@ function render(data){
   const cutoffIso=computeCutoffFridayISO();
   // Dubbele weken uit overlappende tabbladen wegwerken, en – net als bij de primeurs –
   // de vooraf ingevulde toekomstige weken van het lopende seizoen nog niet tonen.
+  // Contractprijzen staan voor het hele seizoen vooraf in de Sheet en moeten ook over
+  // het hele seizoen zichtbaar zijn; de notering komt er pas elke vrijdag bij. Een
+  // toekomstige week blijft dus staan zodra er iéts in ingevuld is – enkel de nog
+  // volledig lege placeholderweken worden verborgen.
   const nonPrimeRows=dedupeByFriday(allRows.filter(r=>!r.is_primeur))
-    .filter(r=>String(r.friday_date||r.date)<=cutoffIso);
+    .filter(r=>String(r.friday_date||r.date)<=cutoffIso||hasAnyData(r));
   primeurRows=allRows.filter(r=>r.is_primeur===true);
-  const baseForLatest=nonPrimeRows.length?nonPrimeRows:allRows;
+  // De KPI-kaart bovenaan kijkt enkel naar weken die al gepasseerd zijn, zodat ze niet
+  // naar een contractprijs verderop in het seizoen springt.
+  const rowsUpToCutoff=nonPrimeRows.filter(r=>String(r.friday_date||r.date)<=cutoffIso);
+  const baseForLatest=rowsUpToCutoff.length?rowsUpToCutoff:(nonPrimeRows.length?nonPrimeRows:allRows);
   const target=isoWeekMetaJS(new Date(cutoffIso+'T00:00:00'));
   latestOverallRow=[...baseForLatest].reverse().find(r=>{const hq=(r.notering_fontane!=null)||(r.notering_challenger!=null)||(r.notering!=null)||(r[contractKey]!=null);if(!hq)return false;const m=isoWeekMetaJS(new Date((r.friday_date||r.date)+'T00:00:00'));return m.week===target.week&&m.year===target.year;})||baseForLatest[baseForLatest.length-1];
   const seasonsRaw=Array.from(new Set(nonPrimeRows.map(r=>r.week_num>=36?r.week_year:r.week_year-1))).sort((a,b)=>b-a);
